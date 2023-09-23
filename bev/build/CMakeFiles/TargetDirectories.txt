@@ -1,0 +1,3 @@
+/home/cristiano/Documents/Projects/Mestrado/Project/crawler-poc-meu/bev/build/CMakeFiles/bev.dir
+/home/cristiano/Documents/Projects/Mestrado/Project/crawler-poc-meu/bev/build/CMakeFiles/edit_cache.dir
+/home/cristiano/Documents/Projects/Mestrado/Project/crawler-poc-meu/bev/build/CMakeFiles/rebuild_cache.dir

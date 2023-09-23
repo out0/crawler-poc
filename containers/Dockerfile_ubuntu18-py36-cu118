@@ -1,0 +1,16 @@
+#IMG-NAME: driveless-simpledev-cuda-img
+FROM nvidia/cuda:11.8.0-runtime-ubuntu18.04
+#FROM ubuntu:bionic-20230126
+
+RUN apt update && \
+    apt install -y python3.6 python3-pip python3.6-dev build-essential git 
+
+
+RUN python3.6 -m pip install -U --force-reinstall pip
+RUN pip3 install torch torchvision torchaudio
+
+RUN pip3 install 'opencv-python<4.6'
+RUN pip3 install onnxruntime==1.10.0
+RUN pip3 install seaborn
+
+RUN apt install -y libgl1
