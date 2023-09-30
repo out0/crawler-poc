@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     f_count = 0
 
-    while f_count < 2000:
+    while f_count < 3000:
         reading, frame = input.read()
         if frame is None:
             continue
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
         f_count = f_count + 1
 
-        start = Waypoint(320, bev_frame.shape[1])
+        start = Waypoint(320, bev_frame.shape[1] - 1)
         goal = Waypoint(320, 0)
 
         path = time_exec(lambda: planner.plan(bev_frame, start, goal), 'path planning')

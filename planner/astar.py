@@ -60,22 +60,6 @@ class QueuedPoint(Waypoint):
         return self.cost == other.cost
 
 
-# class PlanCell:
-#     g_cheapest_path_cost: float
-#     f_current_best_guest_cost: float
-#     h_dist_to_goal: float
-#     parent_x: int
-#     parent_z: int
-#     is_closed: bool
-
-#     def __init__(self):
-#         self.g_cheapest_path_cost = MAX_FLOAT
-#         self.f_current_best_guest_cost = MAX_FLOAT
-#         self.h_dist_to_goal = MAX_FLOAT
-#         self.parent_x = -1
-#         self.parent_z = -1
-#         self.is_closed = False
-
 class NpPlanGrid:
     grid: np.array
     costs: np.array
@@ -108,31 +92,6 @@ class NpPlanGrid:
     def get_parent(self, point: Waypoint) -> Waypoint:
         return Waypoint(self.grid[point.z, point.x][1], self.grid[point.z, point.x][2])
     
-# class PlanGrid:
-#     grid: List[List[PlanCell]]
-
-#     def __init__(self, width: int, height: int):
-#         self.grid = []
-#         for _ in range(0, height):
-#             l = []
-#             for _ in range(0, width):
-#                 l.append(PlanCell())
-#             self.grid.append(l)
-
-#     def set_closed(self, point: Waypoint) -> None:
-#         self.grid[point.z][point.x].is_closed = True
-
-#     def is_closed(self, point: Waypoint) -> bool:
-#         return self.grid[point.z][point.x].is_closed
-
-#     def set_parent(self, point: Waypoint, parent: Waypoint) -> None:
-#         self.grid[point.z][point.x].parent_x = parent.x
-#         self.grid[point.z][point.x].parent_z = parent.z
-
-#     def get_cell(self, point: Waypoint) -> PlanCell:
-#         return self.grid[point.z][point.x]
-
-
 F_CURRENT_BEST_GUESS = 0
 G_CHEAPEST_COST_TO_PATH = 1
 H_DISTANCE_TO_GOAL = 2
@@ -151,9 +110,9 @@ class AStarPlanner:
 
     def _checkObstacle(self, frame: np.array, point: Waypoint) -> bool:
         if point.x < 0 or point.x >= frame.shape[0]:
-            return False
+            return True
         if point.z < 0 or point.z >= frame.shape[1]:
-            return False
+            return True
 
         return self._checkColorEquals(frame, point.x, point.z, 0, 0, 0)
 
