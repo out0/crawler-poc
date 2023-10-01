@@ -4,8 +4,8 @@ import math
 
 PI = 3.1415926
 
-frameWidth = 1920
-frameHeight = 1440
+frameWidth = 768
+frameHeight = 576
 
 
 def update_perspective(val):
@@ -55,7 +55,7 @@ def update_perspective(val):
 
     cv2.imshow("Result", destination)
 
-source = cv2.imread('frame.jpg')  # Replace with your image file path
+source = cv2.imread('frame.png')  # Replace with your image file path
 
 cv2.namedWindow("Result", cv2.WINDOW_NORMAL)
 

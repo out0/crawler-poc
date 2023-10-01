@@ -29,16 +29,23 @@ import time
 class FrameSelection:
     selected_rgb_frame: any
     selected_seg_frame: any
+    _can_replace: bool
 
     def __init__(self) -> None:
         self.selected_rgb_frame = None
         self.selected_seg_frame = None
+        self._can_replace = True
     
     def set_rgb(self, frame) -> None:
-        self.selected_rgb_frame = frame
+        if self._can_replace:
+            self.selected_rgb_frame = frame
 
     def set_seg(self, frame) -> None:
-        self.selected_seg_frame = frame
+        if self._can_replace:
+            self.selected_seg_frame = frame
+
+    def lock_replacement(self) -> None:
+        self._can_replace = False
 
 fs = FrameSelection()
 
@@ -52,8 +59,8 @@ def extract_frames(town: str, wait_time_ms: int) -> None:
     ego_car.set_location(location)
     ego_car.set_autopilot(True)
 
-    ego_car_rgb_cam = CarlaCamera(client, ego_car, 'sensor.camera.rgb', 800, 600, 120, 60)
-    ego_car_seg_cam = CarlaCamera(client, ego_car, 'sensor.camera.semantic_segmentation', 1920, 1440, 120, 60)
+    ego_car_rgb_cam = CarlaCamera(client, ego_car, 'sensor.camera.rgb', 800, 600, 120, 60, bev=False)
+    ego_car_seg_cam = CarlaCamera(client, ego_car, 'sensor.camera.semantic_segmentation', 400, 300, 120, 60, bev=True)
 
     print("waiting")
 
@@ -63,17 +70,20 @@ def extract_frames(town: str, wait_time_ms: int) -> None:
     time.sleep(wait_time_ms/1000)
 
     print("start capturing")
+    fs.lock_replacement()
 
     selected_rgb_frame = VideoStreamer.to_rgb_array(fs.selected_rgb_frame)
     cv2.imwrite('original.png', selected_rgb_frame)
 
     selected_seg_frame = VideoStreamer.to_rgb_array(fs.selected_seg_frame)
-    cv2.imwrite('segmented.png', selected_seg_frame)
-    projector = BEVProjector()
-    selected_seg_frame = projector(selected_seg_frame)
-    converter = FrameSegmentConverter(720, 960)
-    converter.convert_frame(selected_seg_frame)
-    cv2.imwrite('bev_segmented.png', selected_seg_frame)
+    converter = FrameSegmentConverter(400, 300)
+    cv2.imwrite('segmented.png', converter.convert_clone_frame(selected_seg_frame))
+
+    # projector = BEVProjector()
+    # selected_seg_frame = projector(selected_seg_frame)
+    # converter = FrameSegmentConverter(720, 960)
+    # converter.convert_frame(selected_seg_frame)
+    # cv2.imwrite('bev_segmented.png', selected_seg_frame)
 
     print("done")
 

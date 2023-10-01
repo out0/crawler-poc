@@ -46,3 +46,13 @@ class FrameSegmentConverter:
                 frame[i][j][0] = colors[0]
                 frame[i][j][1] = colors[1]
                 frame[i][j][2] = colors[2]
+
+    def convert_clone_frame(self, frame) -> None:
+        new_frame = np.zeros([self.height, self.width, 3])
+        for i in range(0, self.height - 1):
+            for j in range(0, self.width - 1):
+                colors = self._segmented_color[frame[i][j][0]]
+                new_frame[i][j][0] = colors[0]
+                new_frame[i][j][1] = colors[1]
+                new_frame[i][j][2] = colors[2]
+        return new_frame
