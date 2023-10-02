@@ -98,15 +98,15 @@ H_DISTANCE_TO_GOAL = 2
 
 class AStarPlanner:
 
-    def _checkColorEquals(self, frame: np.array,
-                          x: int,
-                          z: int,
-                          r: int,
-                          g: int,
-                          b: int) -> bool:
-        return frame[z][x][0] == r \
-            and frame[z][x][1] == g \
-            and frame[z][x][2] == b
+    # def _checkColorEquals(self, frame: np.array,
+    #                       x: int,
+    #                       z: int,
+    #                       r: int,
+    #                       g: int,
+    #                       b: int) -> bool:
+    #     return frame[z][x][0] == r \
+    #         and frame[z][x][1] == g \
+    #         and frame[z][x][2] == b
 
     def _checkObstacle(self, frame: np.array, point: Waypoint) -> bool:
         if point.x < 0 or point.x >= frame.shape[0]:
@@ -114,7 +114,14 @@ class AStarPlanner:
         if point.z < 0 or point.z >= frame.shape[1]:
             return True
 
-        return self._checkColorEquals(frame, point.x, point.z, 0, 0, 0)
+        pclass = frame[point.z][point.x][0]
+
+        if pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27:
+            return False
+
+        return True
+
+        # return self._checkColorEquals(frame,, , 0, 0, 0)
 
     def _searchValidXWaypoint(self,
                               bev_frame: np.array,
@@ -159,13 +166,6 @@ class AStarPlanner:
             frame,
             self._add_points(point, COMPUTE_DIRECTION_POS[DIR_TOP_RIGHT])
         )
-        # res[DIR_LEFT] = not self._checkObstacle(
-        #     frame,
-        #     self._add_points(point, COMPUTE_DIRECTION_POS[DIR_LEFT]))
-        # res[DIR_RIGHT] = not self._checkObstacle(
-        #     frame,
-        #     self._add_points(point, COMPUTE_DIRECTION_POS[DIR_RIGHT])
-        # )
         res[DIR_BOTTOM_LEFT] = not self._checkObstacle(
             frame,
             self._add_points(point, COMPUTE_DIRECTION_POS[DIR_BOTTOM_LEFT])

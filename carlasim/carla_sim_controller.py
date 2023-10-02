@@ -52,14 +52,14 @@ class CarlaSimulatorController:
         self._ego_car_rgb_cam = CarlaCamera(
             self._carla_client, self._ego_car, 'sensor.camera.rgb', 400, 300, 120, 30, bev=False)
 
-        self._stream_camera(self._ego_car_rgb_cam, 20000)
+#        self._stream_camera(self._ego_car_rgb_cam, 20000)
 
         self._ego_car_seg_cam = CarlaCamera(
-            self._carla_client, self._ego_car, 'sensor.camera.semantic_segmentation', 400, 400, 120, 30, bev=True)
+            self._carla_client, self._ego_car, 'sensor.camera.semantic_segmentation', 400, 300, 120, 30, bev=True)
 
         self._video_streamer_bev = VideoStreamer(
-            400, 400, 400, 400, 30, '127.0.0.1', 20001)
-        self._video_streamer_bev.start()
+            400, 300, 400, 300, 30, '127.0.0.1', 20001)
+ #       self._video_streamer_bev.start()
 
         self._ego_car_seg_cam.set_on_frame_callback(self._on_segmented_frame)
 

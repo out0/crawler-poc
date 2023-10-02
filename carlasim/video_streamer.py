@@ -96,8 +96,8 @@ class VideoStreamer:
         if not self._is_streaming:
              return
         
-        if type(frame).__name__ != 'ndarray':
-            frame = VideoStreamer.to_rgb_array(frame)
+        # if type(frame).__name__ != 'ndarray':
+        #     frame = VideoStreamer.to_rgb_array(frame)
 
         buffer = VideoStreamer._ndarray_to_gst_buffer(frame)
         buffer.timestamp = Gst.CLOCK_TIME_NONE

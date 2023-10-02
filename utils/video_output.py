@@ -15,6 +15,7 @@ class OutputWriter:
             'segmented.mp4', fourcc, 30.0, (352, 288))
         self._planned = cv2.VideoWriter('planned.mp4', fourcc, 30.0, (720, 960))
 
+
     def on_original_frame(self, frame: np.array) -> None:
         self._original.write(frame)
 
