@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import random
 import time
+from carla import ColorConverter
 
 # class FrameCaptureCounter:
 #     frame_capture_count: int
@@ -49,6 +50,7 @@ class FrameSelection:
 
 fs = FrameSelection()
 
+
 def extract_frames(town: str, wait_time_ms: int) -> None:
     client = CarlaClient(town)
     bp = client.get_blueprint("vehicle.tesla.model3")
@@ -75,9 +77,13 @@ def extract_frames(town: str, wait_time_ms: int) -> None:
     selected_rgb_frame = VideoStreamer.to_rgb_array(fs.selected_rgb_frame)
     cv2.imwrite('original.png', selected_rgb_frame)
 
-    selected_seg_frame = VideoStreamer.to_rgb_array(fs.selected_seg_frame)
     converter = FrameSegmentConverter(400, 300)
+    selected_seg_frame = VideoStreamer.to_rgb_array(fs.selected_seg_frame)
+    cv2.imwrite('segmented2.png', selected_seg_frame)
     cv2.imwrite('segmented.png', converter.convert_clone_frame(selected_seg_frame))
+    
+    #fs.selected_seg_frame.convert(ColorConverter.CityScapesPalette)
+    
 
     # projector = BEVProjector()
     # selected_seg_frame = projector(selected_seg_frame)

@@ -10,11 +10,13 @@ import random
 import time
 
 class Controller:
-    outp: cv2.VideoWriter
+    outp_orig: cv2.VideoWriter
+    outp_bev: cv2.VideoWriter
     is_streaming: bool
 
     def __init__(self) -> None:
-        self.outp = cv2.VideoWriter('bev.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (400, 300))
+        self.outp_orig = cv2.VideoWriter('orig.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (400, 300))
+        self.outp_bev = cv2.VideoWriter('bev.mp4', cv2.VideoWriter_fourcc(*'mp4v'), 30.0, (400, 300))
         self.is_streaming = True
 
 controller = Controller()
@@ -40,15 +42,16 @@ def build_video_output(town: str, wait_time_s: int) -> None:
     print("done")
     controller.is_streaming = False
     
-    controller.outp.release()
+    controller.outp_orig.release()
+    controller.outp_bev.release()
 
 def select_rgb_frame(frame) -> None:
     if controller.is_streaming:
-        controller.outp.write(VideoStreamer.to_rgb_array(frame))
+        controller.outp_orig.write(VideoStreamer.to_rgb_array(frame))
 
 def proc_seg_frame(frame) -> None:
     if controller.is_streaming:
-        controller.outp.write(VideoStreamer.to_rgb_array(frame))
+        controller.outp_bev.write(VideoStreamer.to_rgb_array(frame))
 
 
 def _get_wait_time(argc: int, argv: List[str]) -> int:

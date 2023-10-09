@@ -3,6 +3,7 @@ from .waypoint import Waypoint
 from typing import List, Union
 import sys
 import math
+import time
 from queue import PriorityQueue
 
 MAX_FLOAT = sys.float_info.max - 10
@@ -37,8 +38,8 @@ MOVING_COST = [
     4,  # diag up
     # 200,  # side
     # 200,  # side
-    500,  # down!
-    500,  # down!
+    4,  # down!
+    4,  # down!
     500  # down!
 ]
 
@@ -96,6 +97,20 @@ F_CURRENT_BEST_GUESS = 0
 G_CHEAPEST_COST_TO_PATH = 1
 H_DISTANCE_TO_GOAL = 2
 
+class PlannerResult:
+    path: List[Waypoint]
+    start: Waypoint
+    goal: Waypoint
+    invalid_goal: bool
+    valid: bool
+    timeout: bool
+
+    def __init__(self) -> None:
+        self.valid = False
+        self.timeout = False
+        self.invalid_goal = False
+
+
 class AStarPlanner:
 
     # def _checkColorEquals(self, frame: np.array,
@@ -108,18 +123,18 @@ class AStarPlanner:
     #         and frame[z][x][1] == g \
     #         and frame[z][x][2] == b
 
+    def classIsRoad(pclass: int) -> bool:
+        return pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27
+
     def _checkObstacle(self, frame: np.array, point: Waypoint) -> bool:
-        if point.x < 0 or point.x >= frame.shape[0]:
+        if point.z < 0 or point.z >= frame.shape[0]:
             return True
-        if point.z < 0 or point.z >= frame.shape[1]:
+        if point.x < 0 or point.x >= frame.shape[1]:
             return True
 
         pclass = frame[point.z][point.x][0]
 
-        if pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27:
-            return False
-
-        return True
+        return not AStarPlanner.classIsRoad(pclass)
 
         # return self._checkColorEquals(frame,, , 0, 0, 0)
 
@@ -184,22 +199,52 @@ class AStarPlanner:
         dx = p2.x - p1.x
         return math.sqrt(dz * dz + dx * dx)
 
+    def _find_best_goal(self, frame, z = 0):
+        lowest_x = -1
+        highest_x = -1
+
+        for i in range(frame.shape[1] - 1):
+            if lowest_x < 0 and AStarPlanner.classIsRoad(frame[z, i, 0]):
+                lowest_x = i
+                                                    
+            if highest_x < 0 and AStarPlanner.classIsRoad(frame[z, frame.shape[1] - i - 1, 0]):
+                highest_x = i
+       
+        if lowest_x < 0 or highest_x < 0:
+            return self._find_best_goal(frame, z + 1)
+        
+        return Waypoint(0.5 * (highest_x + lowest_x), z)
+
+    def _timeout(self, start_time: int, max_exec_time_ms: int):
+        return 1000*(time.time() - start_time) > max_exec_time_ms
+
     def plan(self,
              bev_frame: np.array,
+             max_exec_time_ms: int,
              start: Waypoint,
-             goal: Waypoint) -> Union[List[Waypoint], None]:
+             goal: Waypoint = None) -> PlannerResult:
 
+        result = PlannerResult()
+
+        result.start = start
+        result.goal = goal
+        
         if self._checkObstacle(bev_frame, start):
-            return None
+            return result
 
-        if self._checkObstacle(bev_frame, goal):
-            goal = self._searchValidXWaypoint(bev_frame, goal)
-            if goal is None:
-                return None
+        if result.goal is None:
+            result.goal = self._find_best_goal(bev_frame)
+        elif self._checkObstacle(bev_frame, goal):
+            result.goal = self._searchValidXWaypoint(bev_frame, goal)
+        
+        if result.goal is None:
+            result.invalid_goal = True
+            return result
+
+        start_time = time.time()
 
         plan_grid = NpPlanGrid(bev_frame.shape[1], bev_frame.shape[0])
         
-
         plan_grid.set_costs(start, [0, 0, 0])
         #plan_grid.set_parent_by_coord(start, [-1, -1])
 
@@ -210,6 +255,10 @@ class AStarPlanner:
 
         while found_goal is None and not open_list.empty():
             curr_point = open_list.get(block=False)
+
+            if self._timeout(start_time, max_exec_time_ms):
+                result.timeout = True
+                return result
 
             plan_grid.set_closed(curr_point)
 
@@ -231,14 +280,29 @@ class AStarPlanner:
                 if plan_grid.is_closed(next_point):
                     continue
 
-                if goal.z == next_point.z:
+                # if goal.z == next_point.z:
+                #     # any point in goal zone is valid for me!
+                #     found_goal = next_point
+                #     plan_grid.set_parent(next_point, curr_point)
+                #     continue
+
+                deviation_from_goal = abs(next_point.x - result.goal.x)
+                if next_point.x - result.goal.x > 0:
+                    inclination = (next_point.z - result.goal.z)/(next_point.x - result.goal.x)
+                else:
+                    inclination = 0
+
+                if result.goal.z == next_point.z and deviation_from_goal < 20:
                     # any point in goal zone is valid for me!
                     found_goal = next_point
                     plan_grid.set_parent(next_point, curr_point)
                     continue
 
-                g = curr_costs[G_CHEAPEST_COST_TO_PATH] + MOVING_COST[dir]
-                h = self._compute_euclidian_distance(next_point, goal)
+
+                g = curr_costs[G_CHEAPEST_COST_TO_PATH] + MOVING_COST[dir] + inclination
+                if deviation_from_goal > 20:
+                    g += 1000
+                h = self._compute_euclidian_distance(next_point, result.goal)
                 f = g + h
 
                 next_costs = plan_grid.get_costs(next_point)
@@ -249,7 +313,7 @@ class AStarPlanner:
                     open_list.put(QueuedPoint(next_point, f))
 
         if found_goal is None:
-            return None
+            return result
 
         path: List[Waypoint] = []
 
@@ -264,4 +328,7 @@ class AStarPlanner:
 
         path.append(start)
         path.reverse()
-        return path
+
+        result.path = path
+        result.valid = True
+        return result

@@ -1,8 +1,10 @@
 import numpy as np
 
+
 class FrameSegmentConverter:
     width: int
     height: int
+
     def __init__(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
@@ -39,19 +41,43 @@ class FrameSegmentConverter:
             [180, 165, 180]
         ])
 
+        # self._segmented_color = np.array([
+        #     [0, 0, 0],         # None
+        #     [70, 70, 70],      # Buildings
+        #     [190, 153, 153],   # Fences
+        #     [72, 0, 90],       # Other
+        #     [220, 20, 60],     # Pedestrians
+        #     [153, 153, 153],   # Poles
+        #     [157, 234, 50],    # RoadLines
+        #     [128, 64, 128],    # Roads
+        #     [244, 35, 232],    # Sidewalks
+        #     [107, 142, 35],    # Vegetation
+        #     [0, 0, 255],      # Vehicles
+        #     [102, 102, 156],  # Walls
+        #     [220, 220, 0]     # TrafficSigns
+        # ])
+
     def convert_frame(self, frame) -> None:
         for i in range(0, self.height - 1):
             for j in range(0, self.width - 1):
-                colors = self._segmented_color[frame[i][j][0]]
+                if frame[i][j][0] > len(self._segmented_color):
+                    colors = np.array([0, 0, 0])
+                else:
+                    colors = self._segmented_color[frame[i][j][0]]
+                
                 frame[i][j][0] = colors[0]
                 frame[i][j][1] = colors[1]
                 frame[i][j][2] = colors[2]
 
-    def convert_clone_frame(self, frame) -> None:
-        new_frame = np.zeros([self.height, self.width, 3])
-        for i in range(0, self.height - 1):
-            for j in range(0, self.width - 1):
-                colors = self._segmented_color[frame[i][j][0]]
+    def convert_clone_frame(self, frame, width: int, height: int) -> None:
+        new_frame = np.zeros([height, width, 3], dtype='uint8')
+        for i in range(0, height - 1):
+            for j in range(0, width - 1):
+                if frame[i][j][0] > len(self._segmented_color):
+                    colors = np.array([0, 0, 0])
+                else:
+                    colors = self._segmented_color[frame[i][j][0]]
+
                 new_frame[i][j][0] = colors[0]
                 new_frame[i][j][1] = colors[1]
                 new_frame[i][j][2] = colors[2]
