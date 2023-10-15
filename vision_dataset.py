@@ -12,7 +12,7 @@ from segmentation.frame_segmenter_onnx_runtime\
 
 from utils.func_timing import time_exec
 from utils.video_output import OutputWriter
-from planner.astar import AStarPlanner
+from planner.astar import AStarPlanner, PlannerResult
 from planner.waypoint import Waypoint
 
 if __name__ == '__main__':
@@ -49,13 +49,11 @@ if __name__ == '__main__':
         start = Waypoint(320, bev_frame.shape[1] - 1)
         goal = Waypoint(320, 0)
 
-        path = time_exec(lambda: planner.plan(bev_frame, start, goal), 'path planning')
+        result: PlannerResult = time_exec(lambda: planner.plan(bev_frame, start, goal), 'path planning')
 
-        if path is None:
-            print("no path was found")
-        else:
+        if result.valid:
             print("path found")
-            for p in path:
+            for p in result.path:
                 for k in range(-10, 10):
                     bev_frame[p.z][p.x + k][0] = 255
                     bev_frame[p.z][p.x + k][1] = 255

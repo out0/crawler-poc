@@ -22,6 +22,7 @@ class LocalPathPlanner:
     _converter: FrameSegmentConverter
     _gps: CarlaGps
     _should_plan: bool
+    _frame_count: int
 
     def __init__(self, controller: CarlaSimulatorController) -> None:
         self._local_planner = AStarPlanner()
@@ -30,11 +31,13 @@ class LocalPathPlanner:
         self._converter = FrameSegmentConverter(400, 300)
         self._gps = CarlaGps(controller)
         self._simulation_controller = controller
-        self._should_plan = True
+        self._should_plan = False
+        self._frame_count = 0
 
 
     def _transmit_planned_path(self, bev, path: List[Waypoint]):
 
+        print(f'shape: {bev.shape[1]} x {bev.shape[0]}')
         frame = self._converter.convert_clone_frame(
             bev, bev.shape[1], bev.shape[0])
 
@@ -65,13 +68,13 @@ class LocalPathPlanner:
     def on_new_frame(self, bev) -> any:
         if not self._should_plan:
             return
-        
+              
         result = self._local_planner.plan(
             bev, 350000, self._ego_waypoint, self._goal_waypoint)
 
-        print(self._gps.read())
-        print(result.goal)
-        print(result.start)
+        if not result.valid:
+            cv2.imwrite(f"invalid_frames/frame_{self._frame_count}.png", bev)
+            self._frame_count += 1
 
         if result.valid:
             print('valid path')
@@ -85,6 +88,7 @@ class LocalPathPlanner:
     
     def set_should_plan(self, val: bool):
         self._should_plan = val
+        self._simulation_controller.get_vehicle().set_autopilot(True)
 
 
 simulation = CarlaSimulatorController()
@@ -93,8 +97,6 @@ simulation.run(planner.on_new_frame)
 
 def on_autonomous_driving_state_change(state: bool):
     planner.set_should_plan(state)
-    if state:
-        simulation.get_vehicle().set_autopilot(True)
 
 manual_control = RemoteController(MqttClient('127.0.0.1', 1883), simulation.get_vehicle().get_actor(), on_autonomous_driving_state_change)
 

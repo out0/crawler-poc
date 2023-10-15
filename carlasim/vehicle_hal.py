@@ -7,6 +7,8 @@ import random
 import carla
 from .carla_camera import CarlaCamera
 from .video_streamer import VideoStreamer
+import math
+import time
 
 class EgoCar:
     _ego_car: any
@@ -116,10 +118,27 @@ class EgoCar:
             else:
                 self._camera_bev.set_on_frame_callback(self._config_bev_frame_callback)
         
+
         return self
 
     def get_location(self):
         return self._ego_car.get_location()
+    
+    def get_heading(self):
+        t = self._ego_car.get_transform()
+        return t.rotation.yaw
+
+        # if y < 0:
+        #     return 360 + y
+        # return y
+    
+    def set_pose(self, x: int, y: int, yaw: float) -> None:
+        self.stop()
+        t = self._ego_car.get_transform()
+        t.location =  carla.libcarla.Location(x, y, 0)
+        t.rotation.yaw = yaw
+        self._ego_car.set_transform(t)
+        
 
     def get_actor(self):
         return self._ego_car
@@ -131,10 +150,14 @@ class EgoCar:
         self._ego_car.apply_control(self._vehicle_control)       
 
     def stop(self):
-        self._vehicle_control.brake = 100.0
+        self._vehicle_control.brake = 1.0
+        self._ego_car.apply_control(self._vehicle_control)   
 
     def forward(self):
         self._set_engine_power(100)
+
+    def forward_slow(self):
+        self._set_engine_power(50)
 
     def backward(self):
         self._set_engine_power(-100)
@@ -144,4 +167,38 @@ class EgoCar:
         self._ego_car.apply_control(self._vehicle_control)
 
     def set_autopilot(self, val: bool):
+        """ Simulator-only """
         self._ego_car.set_autopilot(val)
+
+    def get_yaw(self):
+        """ Simulator-only - needs SLAM / RESEARCH """
+        return self._ego_car.get_transform().rotation.yaw
+
+    def _calculate_angle(self, x1, y1, x2, y2):
+        angle_rad = math.atan2(y2 - y1, x2 - x1)
+        angle_deg = math.degrees(angle_rad)    
+        return angle_deg
+
+    def compute_heading_to(self, x2, y2):
+        current_location = self.get_location()
+        return self._calculate_angle(current_location.x, current_location.y, x2, y2)       
+
+    def compute_distance_to(self, x2, y2) -> float:
+        current_location = self.get_location()
+        return math.sqrt((y2 - current_location.y)**2 + (x2 - current_location.x)**2)
+
+
+    def drive_to(self, x_goal:int, y_goal:int) -> None:
+        new_heading = self.compute_heading_to(x_goal, y_goal)
+        # self.steer(1.5 * (new_heading - self.get_heading()))
+        # self.stop()
+        # while int(self.get_heading()) != int(new_heading):
+        #     self.forward_slow()
+        # self.steer(0)
+        # last_d = self.compute_distance_to(x_goal, y_goal)
+        # self.forward()
+        # d = last_d
+        # while d <= last_d:
+        #     d = self.compute_distance_to(x_goal, y_goal)
+        # self.stop()
+        self.set_pose(x_goal, y_goal, new_heading)

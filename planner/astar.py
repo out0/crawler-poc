@@ -5,6 +5,7 @@ import sys
 import math
 import time
 from queue import PriorityQueue
+from io import StringIO
 
 MAX_FLOAT = sys.float_info.max - 10
 
@@ -109,19 +110,37 @@ class PlannerResult:
         self.valid = False
         self.timeout = False
         self.invalid_goal = False
+    
+    def __str__(self) -> str:
+        str = StringIO()
+        str.write("{\n")
+        str.write(f"    start: {(self.start.x, self.start.z)}\n")
+        if self.invalid_goal:
+            str.write(f"    goal: (INVALID)\n")
+        else:
+            str.write(f"    goal: {(self.goal.x, self.goal.z)}\n")
+        str.write("    path: ")
+
+        if self.valid:
+            first = True
+            for p in self.path:
+                if not first:
+                    str.write(" -> ")
+                str.write(f"{(p.x, p.z)}")
+                first = False
+            str.write("\n")
+        else:
+            str.write("(INVALID)\n")
+        
+        str.write("}\n")
+
+        if self.timeout:
+            str.write(f"    timeout: {self.timeout}")
+
+        return str.getvalue()
 
 
 class AStarPlanner:
-
-    # def _checkColorEquals(self, frame: np.array,
-    #                       x: int,
-    #                       z: int,
-    #                       r: int,
-    #                       g: int,
-    #                       b: int) -> bool:
-    #     return frame[z][x][0] == r \
-    #         and frame[z][x][1] == g \
-    #         and frame[z][x][2] == b
 
     def classIsRoad(pclass: int) -> bool:
         return pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27
@@ -155,6 +174,19 @@ class AStarPlanner:
             if not self._checkObstacle(bev_frame, search_point):
                 return search_point
             search_point.x = search_point.x + 1
+
+        return None
+    
+    def _searchValidZWaypoint(self,
+                              bev_frame: np.array,
+                              p: Waypoint) -> Union[Waypoint, None]:
+
+        search_point = Waypoint(p.x, p.z - 1)
+
+        while search_point.z > 0:
+            if not self._checkObstacle(bev_frame, search_point):
+                return search_point
+            search_point.z -= 1
 
         return None
 
@@ -199,21 +231,44 @@ class AStarPlanner:
         dx = p2.x - p1.x
         return math.sqrt(dz * dz + dx * dx)
 
-    def _find_best_goal(self, frame, z = 0):
-        lowest_x = -1
-        highest_x = -1
+    def _find_best_x(self, frame, z):
+        best_lower_x = -1
+        best_higher_x = -1
+        best_size = 0
+        
+        x_init = -1
+        x_end = 0
+        len = frame.shape[1] - 1
+        i = 0
+        
+        while i < len:
+            if AStarPlanner.classIsRoad(frame[z, i, 0]):
+                if x_init < 0:
+                    x_init = i
+                    x_end = i
+                    i += 1
 
-        for i in range(frame.shape[1] - 1):
-            if lowest_x < 0 and AStarPlanner.classIsRoad(frame[z, i, 0]):
-                lowest_x = i
-                                                    
-            if highest_x < 0 and AStarPlanner.classIsRoad(frame[z, frame.shape[1] - i - 1, 0]):
-                highest_x = i
-       
-        if lowest_x < 0 or highest_x < 0:
+                    while i < len and AStarPlanner.classIsRoad(frame[z, i, 0]):
+                        x_end = i
+                        i += 1
+                    
+                    if x_end - x_init > best_size:
+                        best_lower_x = x_init
+                        best_higher_x = x_end
+                        best_size = x_end - x_init
+                    
+                    x_init = -1
+            i += 1
+
+        return 0.5 * (best_higher_x + best_lower_x)
+
+    def _find_best_goal(self, frame, z = 0):
+        best_x = self._find_best_x(frame, z)
+
+        if best_x < 0:
             return self._find_best_goal(frame, z + 1)
         
-        return Waypoint(0.5 * (highest_x + lowest_x), z)
+        return Waypoint(best_x, z)
 
     def _timeout(self, start_time: int, max_exec_time_ms: int):
         return 1000*(time.time() - start_time) > max_exec_time_ms
@@ -230,7 +285,9 @@ class AStarPlanner:
         result.goal = goal
         
         if self._checkObstacle(bev_frame, start):
-            return result
+            result.start = self._searchValidZWaypoint(bev_frame, start)
+            if self._checkObstacle(bev_frame, start):
+                return result
 
         if result.goal is None:
             result.goal = self._find_best_goal(bev_frame)
