@@ -36,7 +36,7 @@ class VideoStreamer:
         """Converts numpy array to Gst.Buffer"""
         return Gst.Buffer.new_wrapped(array.tobytes())
 
-    def __init__(self,  orig_width: int, orig_height: int, width: int, height: int, fps: int, ip: str, port: int) -> None:
+    def __init__(self,  orig_width: int, orig_height: int, width: int, height: int, fps: int, ip: str, port: int ) -> None:
         # self._launch_string = f"appsrc name=source is-live=true " \
         #         f" caps=video/x-raw,format=RGB,width={orig_width},height={orig_height},framerate={fps}/1 "   \
         #         f" ! queue ! videoconvert ! x264enc ! rtph264pay ! queue ! udpsink host={ip} port={port} sync=false"
@@ -54,7 +54,12 @@ class VideoStreamer:
 
 
     def start(self):
-        self._pipeline = Gst.parse_launch(self._launch_string)
+        try:
+            self._pipeline = Gst.parse_launch(self._launch_string)
+        except ValueError as ex:
+            print (ex)
+            raise ex
+
         self._appsrc = self._pipeline.get_child_by_name('source')
         self._duration = (1 / self._fps) * Gst.SECOND
         self._pipeline.set_state(Gst.State.PLAYING)

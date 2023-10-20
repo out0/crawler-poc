@@ -8,7 +8,7 @@ import carla
 from .carla_camera import CarlaCamera
 from .video_streamer import VideoStreamer
 import math
-import time
+
 
 class EgoCar:
     _ego_car: any
@@ -23,6 +23,7 @@ class EgoCar:
     _camera_rgb_streamer: VideoStreamer
     _camera_bev_streamer: VideoStreamer
     _vehicle_control: carla.VehicleControl
+    _color: str
 
 
     def __init__(self, client: CarlaClient) -> None:
@@ -39,6 +40,7 @@ class EgoCar:
         self._camera_rgb_streamer = None
         self._camera_bev_streamer = None
         self._vehicle_control = carla.VehicleControl()
+        self._color = '63, 183, 183'
 
     def with_rgb_camera(self, port: int = 20000, on_frame_callback: callable = None) -> 'EgoCar':
         self._config_rgb_cam_port = port
@@ -58,6 +60,10 @@ class EgoCar:
         self._config_autopilot = True
         return self
     
+    def set_color(self, r: int, g: int, b: int):
+        self._color = f'{r}, {g}, {b}'
+        return self
+
     def send_bev_frame(self, frame) -> None:
         if frame is None:
             return
@@ -65,6 +71,7 @@ class EgoCar:
         self._build_bev_streamer()
         if self._camera_bev_streamer is None:
             return
+        
         self._camera_bev_streamer.new_frame(frame)
 
     def send_rgb_frame(self, frame) -> None:
@@ -90,7 +97,7 @@ class EgoCar:
 
     def build(self) -> 'EgoCar': 
         bp = self._client.get_blueprint("vehicle.tesla.model3")
-        bp.set_attribute('color', '63, 183, 183')
+        bp.set_attribute('color', self._color)
 
         if self._spawn_location is None:
             location = random.choice(self._client.get_world().get_map().get_spawn_points())
@@ -100,7 +107,8 @@ class EgoCar:
         else:
             self._ego_car = self._client.get_world().spawn_actor(bp, self._spawn_location)
 
-        self._ego_car.set_autopilot(self._config_autopilot)
+        if self._config_autopilot:
+            self._ego_car.set_autopilot(self._config_autopilot)
 
         if self._config_rgb_cam_port > 0:
             self._camera_rgb = CarlaCamera(self._client, self._ego_car, 'sensor.camera.rgb', 400, 300, 120, 30, bev=False)
@@ -174,18 +182,18 @@ class EgoCar:
         """ Simulator-only - needs SLAM / RESEARCH """
         return self._ego_car.get_transform().rotation.yaw
 
-    def _calculate_angle(self, x1, y1, x2, y2):
-        angle_rad = math.atan2(y2 - y1, x2 - x1)
-        angle_deg = math.degrees(angle_rad)    
-        return angle_deg
+    # def _calculate_angle(self, x1, y1, x2, y2):
+    #     angle_rad = math.atan2(y2 - y1, x2 - x1)
+    #     angle_deg = math.degrees(angle_rad)    
+    #     return angle_deg
 
-    def compute_heading_to(self, x2, y2):
-        current_location = self.get_location()
-        return self._calculate_angle(current_location.x, current_location.y, x2, y2)       
+    # def compute_heading_to(self, x2, y2):
+    #     current_location = self.get_location()
+    #     return self._calculate_angle(current_location.x, current_location.y, x2, y2)       
 
-    def compute_distance_to(self, x2, y2) -> float:
-        current_location = self.get_location()
-        return math.sqrt((y2 - current_location.y)**2 + (x2 - current_location.x)**2)
+    # def compute_distance_to(self, x2, y2) -> float:
+    #     current_location = self.get_location()
+    #     return math.sqrt((y2 - current_location.y)**2 + (x2 - current_location.x)**2)
 
 
     def drive_to(self, x_goal:int, y_goal:int) -> None:
