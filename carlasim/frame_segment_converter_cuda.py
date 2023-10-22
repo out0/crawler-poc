@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 from numba import cuda, jit
 
 class FrameSegmentConverterCuda:

@@ -9,6 +9,7 @@ import cv2
 import time
 import queue
 from carlasim.video_streamer import VideoStreamer
+from planner.occupancy_grid import OccupancyGrid
 
 class ExtractionConfig:
     file: str
@@ -124,11 +125,12 @@ class OutputFrameWriter(OutputWriter):
     def close(self) -> None:
         pass
 
-def save_bev(can_output_data: bool, outp: OutputWriter, outp_color: OutputWriter, converter: any, frame: any) -> None:
+def save_bev(can_output_data: bool, outp: OutputWriter, outp_color: OutputWriter, frame: any) -> None:
     f = VideoStreamer.to_rgb_array(frame)
+    og = OccupancyGrid(f, 0, 0)
     if can_output_data:
         outp.write(f)
-        outp_color.write(converter.convert_frame(f))
+        outp_color.write(og.get_color_frame())
 
 def save_orig(can_output_data: bool, outp: OutputWriter, frame: any) -> None:
     if can_output_data:
@@ -139,10 +141,10 @@ def save_orig(can_output_data: bool, outp: OutputWriter, frame: any) -> None:
 def extract_from_carla(conf: ExtractionConfig):
     from carlasim.carla_sim_controller import CarlaClient
     from carlasim.vehicle_hal import EgoCar
-    from carlasim.frame_segment_converter_cuda import FrameSegmentConverterCuda
+    
 
     client = CarlaClient(conf.carla_town)
-    converter = FrameSegmentConverterCuda()
+    
 
     if conf.extract_to_frames:
         outp_orig = OutputFrameWriter("original", "results/carla")
@@ -157,7 +159,7 @@ def extract_from_carla(conf: ExtractionConfig):
 
     car = EgoCar(client)\
         .with_rgb_camera(20000, lambda f: save_orig(can_output_data, outp_orig, f))\
-        .with_bev_camera(20001, lambda f: save_bev(can_output_data, outp_bev, outp_bev_color, converter, f))\
+        .with_bev_camera(20001, lambda f: save_bev(can_output_data, outp_bev, outp_bev_color, f))\
         .autopilot()\
         .build()
     
