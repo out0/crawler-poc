@@ -10,6 +10,7 @@ import time
 import queue
 from carlasim.video_streamer import VideoStreamer
 from planner.occupancy_grid import OccupancyGrid
+from utils.sequence_log import SequencedLog
 
 class ExtractionConfig:
     file: str
@@ -125,14 +126,18 @@ class OutputFrameWriter(OutputWriter):
     def close(self) -> None:
         pass
 
-def save_bev(can_output_data: bool, outp: OutputWriter, outp_color: OutputWriter, frame: any) -> None:
+def save_bev(can_output_data: bool, outp: OutputWriter, outp_color: OutputWriter, car: any, log: SequencedLog, frame: any) -> None:
     f = VideoStreamer.to_rgb_array(frame)
     og = OccupancyGrid(f, 0, 0)
     if can_output_data:
         outp.write(f)
         outp_color.write(og.get_color_frame())
 
-def save_orig(can_output_data: bool, outp: OutputWriter, frame: any) -> None:
+        l = car.get_location()
+        h = car.get_heading()
+        log.write_seq(l.x, l.y, h)
+
+def save_orig(can_output_data: bool, outp: OutputWriter, car: any, log: SequencedLog, frame: any) -> None:
     if can_output_data:
         outp.write( VideoStreamer.to_rgb_array(frame))
 
@@ -154,15 +159,19 @@ def extract_from_carla(conf: ExtractionConfig):
 
     can_output_data = False
 
+    log = SequencedLog("sensors.dat")
+
     print("building ego car")
     car = EgoCar(client)\
-        .with_rgb_camera(20000, lambda f: save_orig(can_output_data, outp_orig, f))\
-        .with_bev_camera(20001, lambda f: save_bev(can_output_data, outp_bev, outp_bev_color, f))\
+        .with_rgb_camera(20000, lambda f: save_orig(can_output_data, outp_orig, car, log, f))\
+        .with_bev_camera(20001, lambda f: save_bev(can_output_data, outp_bev, outp_bev_color, car, log, f))\
         .autopilot()\
         .build()
     
-    #print("setting pose")
-    #car.set_pose(0, 0, 0)
+
+    
+    print("setting pose")
+    car.set_pose(0, 0, 0)
     
     print(f"waiting {conf.waiting_time_s}s to start recording")
     time.sleep(conf.waiting_time_s)
@@ -268,6 +277,9 @@ def extract_from_dataset(conf: ExtractionConfig):
     outp_orig.close()
     outp_seg.close()
     outp_bev.close()
+
+
+
 
 def execute_extract(conf: ExtractionConfig):
     if conf.file is None:
