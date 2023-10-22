@@ -1,8 +1,6 @@
 import carla
 from .mqtt_client import MqttClient
 import json
-from carlasim.carla_sim_controller import CarlaSimulatorController
-
 
 class RemoteController:
     _mqtt_client: MqttClient = None

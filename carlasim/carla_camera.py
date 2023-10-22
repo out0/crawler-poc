@@ -27,6 +27,9 @@ class CarlaCamera:
             camera_transform = carla.Transform(carla.Location(x=1.5, z=2))
         return self._carla_client.get_world().spawn_actor(camera_bp, camera_transform, attach_to=target)
 
+    def destroy(self) -> None:
+        self._camera.destroy()
+
     def width(self):
         return self._width
 

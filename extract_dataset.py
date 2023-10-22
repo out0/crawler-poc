@@ -57,7 +57,7 @@ class UserCmd:
                 conf.file = argv[i]
             elif argv[i] == '-c':
                 conf.file = None
-                if i > argc - 1 and argv[i+1][0] != '-':
+                if argc > i + 1 and argv[i+1][0] != '-':
                     i += 1
                     conf.carla_town = argv[i]
             elif argv[i] == '-w':
@@ -136,15 +136,12 @@ def save_orig(can_output_data: bool, outp: OutputWriter, frame: any) -> None:
     if can_output_data:
         outp.write( VideoStreamer.to_rgb_array(frame))
 
-
-
 def extract_from_carla(conf: ExtractionConfig):
     from carlasim.carla_sim_controller import CarlaClient
     from carlasim.vehicle_hal import EgoCar
     
-
-    client = CarlaClient(conf.carla_town)
-    
+    print(f"setting up simulation to '{conf.carla_town}'")
+    client = CarlaClient(conf.carla_town)   
 
     if conf.extract_to_frames:
         outp_orig = OutputFrameWriter("original", "results/carla")
@@ -157,23 +154,29 @@ def extract_from_carla(conf: ExtractionConfig):
 
     can_output_data = False
 
+    print("building ego car")
     car = EgoCar(client)\
         .with_rgb_camera(20000, lambda f: save_orig(can_output_data, outp_orig, f))\
         .with_bev_camera(20001, lambda f: save_bev(can_output_data, outp_bev, outp_bev_color, f))\
         .autopilot()\
         .build()
     
-    car.set_pose(0, 0, 0)
-    print("waiting")
+    #print("setting pose")
+    #car.set_pose(0, 0, 0)
+    
+    print(f"waiting {conf.waiting_time_s}s to start recording")
     time.sleep(conf.waiting_time_s)
     can_output_data = True
-    print("recording")
+    
+    print(f"recording {conf.recording_time_s}s of simulation...")
     time.sleep(conf.recording_time_s)
     can_output_data = False
 
     outp_orig.close()
     outp_bev.close()
     outp_bev_color.close()
+
+    car.destroy()
 
 class SharedControlData:
     running: bool

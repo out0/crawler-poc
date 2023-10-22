@@ -37,10 +37,7 @@ class VideoStreamer:
         return Gst.Buffer.new_wrapped(array.tobytes())
 
     def __init__(self,  orig_width: int, orig_height: int, width: int, height: int, fps: int, ip: str, port: int ) -> None:
-        # self._launch_string = f"appsrc name=source is-live=true " \
-        #         f" caps=video/x-raw,format=RGB,width={orig_width},height={orig_height},framerate={fps}/1 "   \
-        #         f" ! queue ! videoconvert ! x264enc ! rtph264pay ! queue ! udpsink host={ip} port={port} sync=false"
-        
+       
         self._launch_string = f"appsrc name=source is-live=true format=time" \
                 f" caps=video/x-raw,format=RGB,width={orig_width},height={orig_height},framerate={fps}/1 "   \
                 f"! queue ! videoconvert ! videoscale ! video/x-raw,width={width},height={height}  ! x264enc ! " \
@@ -72,19 +69,20 @@ class VideoStreamer:
 
     def stop(self):
         self._is_streaming = False
-        self._thr_stream.join()
-        self._thr_stream = None
+        if self._thr_stream is not None:
+            self._thr_stream.join()
+            self._thr_stream = None
         self._frame_queue = None
 
-        self._pipeline.set_state(Gst.State.NULL)
+        if self._pipeline is not None:
+            self._pipeline.set_state(Gst.State.NULL)
         self._pipeline = None
         self._appsrc = None
         
 
-
     def __perform_streaming(self):
         while self._is_streaming:
-            if self._frame_queue.empty():
+            if self._frame_queue is None or self._frame_queue.empty():
                 continue
             try:
                 frame = self._frame_queue.get(block=False)
@@ -120,4 +118,5 @@ class VideoStreamer:
         self._frame_count += 1
 
     def new_frame(self, frame):
-        self._frame_queue.put(frame)
+        if self._is_streaming:
+            self._frame_queue.put(frame)

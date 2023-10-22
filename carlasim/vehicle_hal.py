@@ -42,6 +42,21 @@ class EgoCar:
         self._vehicle_control = carla.VehicleControl()
         self._color = '63, 183, 183'
 
+    def destroy(self) -> None:
+        if  self._camera_rgb_streamer is not None:
+            self._camera_rgb_streamer.stop()
+        if  self._camera_rgb_streamer is not None:
+            self._camera_rgb_streamer.stop()
+        
+        if  self._camera_rgb is not None:
+            self._camera_rgb.destroy()
+        
+        if  self._camera_bev is not None:
+            self._camera_bev.destroy()
+            
+        self._ego_car.destroy()
+
+
     def with_rgb_camera(self, port: int = 20000, on_frame_callback: callable = None) -> 'EgoCar':
         self._config_rgb_cam_port = port
         self._config_rgb_frame_callback = on_frame_callback
