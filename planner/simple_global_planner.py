@@ -4,49 +4,69 @@
 #  those location points can are fed to the local planner to perform a mission
 #
 
-from .waypoint import Waypoint
-from io import TextIOWrapper
-import os
+from typing import List
+import os, math
 from .vehicle_pose import VehiclePose
+from .waypoint import Waypoint
 
-class SimpleGlobalPlanner:
+
+class SimpleMissionSaver:
     _file: str
-    _pos: int
-    _opened_file: TextIOWrapper
+
+    def _file_clear(self) -> None:
+        f = open(file=self._file, mode='w')
+        f.close()
 
     def __init__(self, file: str) -> None:
         self._file = file
-        self._pos = 1
-        self._opened_file = None
-        
-    def check_exists(self) -> bool:
-        return os.path.exists(self._file)
+        self._file_clear()
     
     def save_waypoint(self, p: Waypoint) -> None:
-        if self._opened_file is not None:
-            self._opened_file.close()
-            self._opened_file = None
-
         f = open(file=self._file, mode='+a')
         f.write(f"{p.x}|{p.z}")
         f.close()
 
-    def get_next_waypoint(self) -> VehiclePose:
-        line: str = None
-        if self._opened_file is None:
-            self._opened_file = open(file=self._file, mode='+r')
-            i = self._pos
-            while i > 0:
-                self._opened_file.readline()
-                i -= 1
-            line = self._opened_file.readline()
-        else:
+class SimpleGlobalPlanner:
+    _goal_poses: List[VehiclePose]
+    _pos: int
+
+    def __init__(self) -> None:
+        self._pos = -1
+        self._goal_poses = []
+  
+    def _euclidian_dist(self, p1: VehiclePose, p2: VehiclePose) -> float:
+        dx = p1.x - p2.x
+        dy = p1.y - p2.y
+        return math.sqrt(dx*dx + dy*dy)
+
+    def read_mission(self, file: str) -> bool:
+        if not os.path.exists(file):
+            print (f"mission file {file} not found")
+            return False
+        
+        f = open(file=file, mode='+r')
+        lines = f.readlines()
+        
+        skip = True
+        for line in lines:
+            if skip:
+                skip = False
+                continue
+            vals = line.split('|')
+            pose = VehiclePose(float(vals[0]),float(vals[1]),float(vals[2]))
+            self._goal_poses.append(pose)
+
+        self._pos = -1
+
+        return True
+
+    def get_next_waypoint(self, location: VehiclePose) -> VehiclePose:
+        if self._pos < 0:
+            self._pos = 0
+            return self._goal_poses[self._pos]
+        
+        dist = self._euclidian_dist(location, self._goal_poses[self._pos])
+        if dist < 20:
             self._pos += 1
-            line = self._opened_file.readline()
         
-        if line is None:
-            return None
-        
-        vals = line.split('|')
-        return VehiclePose(float(vals[0]),float(vals[1]),float(vals[2]))
-        
+        return self._goal_poses[self._pos]

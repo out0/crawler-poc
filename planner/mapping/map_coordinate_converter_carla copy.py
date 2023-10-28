@@ -28,20 +28,6 @@ class MapCoordinateConverterCarla(MapCoordinateConverter):
             [-s, c, 0],
             [0 , 0, 1]
         ])
-    
-    def build_coordinate_inv_transf_mat(self, x: float, y: float, angle: float) -> np.ndarray:
-        c = math.cos(angle)
-        s = math.sin(angle)
-    
-        return np.array([
-            [c, s, 0],
-            [-s, c, 0],
-            [0 , 0, 1]
-        ]) @ np.array([
-            [1, 0 , 0],
-            [0, 1, 0],
-            [x, y, 1]
-        ])
 
     def convert_to_world_pose(self, location: VehiclePose, target : Waypoint) -> VehiclePose:
 
@@ -51,7 +37,7 @@ class MapCoordinateConverterCarla(MapCoordinateConverter):
         dx = x_for_center_on_location * self._virtual_to_real_x_ratio
         dy = z_for_center_on_location * self._virtual_to_real_y_ratio
 
-        m = self.build_coordinate_inv_transf_mat(location.x, location.y, location.heading)
+        m = self.build_coordinate_transf_mat(location.x, location.y, location.heading)
 
         p = np.array([
             dx, dy, 1
@@ -74,9 +60,10 @@ class MapCoordinateConverterCarla(MapCoordinateConverter):
         x_for_center_on_location = p[0] / self._virtual_to_real_x_ratio
         z_for_center_on_location = p[1] / self._virtual_to_real_y_ratio
 
-        x = math.ceil(x_for_center_on_location + self._bev_origin.x)
-        z = math.ceil(self._bev_origin.z - z_for_center_on_location)
+        x = x_for_center_on_location + self._bev_origin.x
+        z = self._bev_origin.z - z_for_center_on_location
 
         return Waypoint (x, z)
 
+    
     

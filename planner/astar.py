@@ -110,6 +110,7 @@ class PlannerResult:
         self.valid = False
         self.timeout = False
         self.invalid_goal = False
+        self.path = None
     
     def __str__(self) -> str:
         str = StringIO()
@@ -143,7 +144,7 @@ class PlannerResult:
 class AStarPlanner:
 
     def classIsRoad(pclass: int) -> bool:
-        return pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27
+        return pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27 or pclass == 14
 
     def _checkObstacle(self, frame: np.array, point: Waypoint) -> bool:
         if point.z < 0 or point.z >= frame.shape[0]:
@@ -284,10 +285,10 @@ class AStarPlanner:
         result.start = start
         result.goal = goal
         
-        if self._checkObstacle(bev_frame, start):
-            result.start = self._searchValidZWaypoint(bev_frame, start)
-            if self._checkObstacle(bev_frame, start):
-                return result
+        # if self._checkObstacle(bev_frame, start):
+        #     result.start = self._searchValidZWaypoint(bev_frame, start)
+        #     if self._checkObstacle(bev_frame, start):
+        #         return result
 
         if result.goal is None:
             result.goal = self._find_best_goal(bev_frame)

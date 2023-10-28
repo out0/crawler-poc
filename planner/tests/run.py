@@ -5,53 +5,101 @@ import unittest
 from mapping.map_coordinate_converter_carla import MapCoordinateConverterCarla
 from planner.vehicle_pose import VehiclePose
 from planner.waypoint import Waypoint
+import math
+
 
 class TestMapCoordinateConverter(unittest.TestCase):
     
-    def test_convert_self_location_world_coordinates(self):
+    def test_diagonals_local_to_map(self):
         converter = MapCoordinateConverterCarla(100, 100, 500, 500)
 
         # (20, 20) is our 500x500 window center (250,250) 
         # in world coordinates
-        self_location = VehiclePose(20, 20, 0)
+        self_location = VehiclePose(20, 20, math.radians(0))
+        expected_var = 50
 
-        target = Waypoint(250, 250)
+        expected_degree = 45
+        world_pose = converter.convert_to_world_pose(self_location, Waypoint(500, 0))
+
+        self.assertEqual(20 + expected_var, world_pose.x)
+        self.assertEqual(20 + expected_var, world_pose.y)
+        self.assertEqual(expected_degree, math.degrees(world_pose.heading))
+
+        expected_degree = 135
+        world_pose = converter.convert_to_world_pose(self_location, Waypoint(0, 0))
+
+        self.assertEqual(20 - expected_var, world_pose.x)
+        self.assertEqual(20 + expected_var, world_pose.y)
+        self.assertEqual(expected_degree, math.degrees(world_pose.heading))
+
+        expected_degree = -45
+        world_pose = converter.convert_to_world_pose(self_location, Waypoint(500, 500))
+
+        self.assertEqual(20 + expected_var, world_pose.x)
+        self.assertEqual(20 - expected_var, world_pose.y)
+        self.assertEqual(expected_degree, math.degrees(world_pose.heading))
+
+        expected_degree = -135
+        world_pose = converter.convert_to_world_pose(self_location, Waypoint(0, 500))
+
+        self.assertEqual(20 - expected_var, world_pose.x)
+        self.assertEqual(20 - expected_var, world_pose.y)
+        self.assertEqual(expected_degree, math.degrees(world_pose.heading))
+
+    def test_diagonals_map_to_local(self):
+        converter = MapCoordinateConverterCarla(100, 100, 500, 500)
+
+        # (20, 20) is our 500x500 window center (250,250) 
+        # in world coordinates
+        self_location = VehiclePose(20, 20, math.radians(0))
+
+        p = converter.convert_to_waypoint(self_location, VehiclePose(70, 70, math.radians(45)))
+        self.assertEqual(500, p.x)
+        self.assertEqual(0, p.z)
+
+        p = converter.convert_to_waypoint(self_location, VehiclePose(-30, 70, math.radians(45)))
+        self.assertEqual(0, p.x)
+        self.assertEqual(0, p.z)
+
+        p = converter.convert_to_waypoint(self_location, VehiclePose(70, -30, math.radians(45)))
+        self.assertEqual(500, p.x)
+        self.assertEqual(500, p.z)
+
+        p = converter.convert_to_waypoint(self_location, VehiclePose(-30, -30, math.radians(45)))
+        self.assertEqual(0, p.x)
+        self.assertEqual(500, p.z)
+
+    def test_local_with_heading(self):
+        converter = MapCoordinateConverterCarla(100, 100, 500, 500)
         
-        world_pose = converter.convert_to_world_pose(self_location, target, heading=0)
+        self_location = VehiclePose(20, 20, math.radians(-45))
+        pose = VehiclePose(30, 30, 45)
 
-        self.assertEqual(self_location.x, world_pose.x)
-        self.assertEqual(self_location.y, world_pose.y)
+        p = converter.convert_to_waypoint(self_location, pose)
+        print(f"{p}")
 
-    def test_convert_self_location_local_coordinates(self):
+
+        pose2 = converter.convert_to_world_pose(self_location, p)
+
+        self.assertAlmostEqual(pose2.x, pose.x, delta=0.5)
+        self.assertAlmostEqual(pose2.y, pose.y, delta=0.5)
+
+    def test_self_location(self):
         converter = MapCoordinateConverterCarla(100, 100, 500, 500)
-
-        # (20, 20) is our 500x500 window center (250,250) 
-        # in world coordinates
-        self_location = VehiclePose(20, 20, 0)
         
-        local_center = Waypoint(250, 250)       
-        local_waypoint = converter.convert_to_waypoint(self_location, self_location)
+        self_location = VehiclePose(20, 20, math.radians(-45))
+        pose = VehiclePose(20, 20, 45)
 
-        self.assertEqual(local_waypoint.x, local_center.x)
-        self.assertEqual(local_waypoint.z, local_center.z)
-
-    def test_convert_from_and_back_location(self):
-        converter = MapCoordinateConverterCarla(100, 100, 500, 500)
-
-        # (20, 20) is our 500x500 window center (250,250) 
-        # in world coordinates
-        self_location = VehiclePose(20, 20, 0)
+        p = converter.convert_to_waypoint(self_location, pose)
+        print(f"{p}")
 
 
-        for i in range (0, 499):
-            for j in range (0, 499):
-                local = Waypoint(i, j)
-                world_pose = converter.convert_to_world_pose(self_location, local, heading=0)
-                local_reconverted = converter.convert_to_waypoint(self_location, world_pose)
+        pose2 = converter.convert_to_world_pose(self_location, p)
 
-                self.assertAlmostEqual(local.x, local_reconverted.x, delta=1)
-                self.assertAlmostEqual(local.z, local_reconverted.z, delta=1)
-    
+        self.assertAlmostEqual(pose2.x, pose.x, delta=0.5)
+        self.assertAlmostEqual(pose2.y, pose.y, delta=0.5)
+
+
 
     
 
