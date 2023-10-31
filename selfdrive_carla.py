@@ -202,37 +202,16 @@ class MissionBuilder:
             f.close()
 
 class TeleportMotionPlanner:
-    # TO DO: implement a real motion planner
-    DIST_FRONT = 16.3
-    DIST_BACK = 13.5
-    DIST_LEFT = 17.9
-    DIST_RIGHT = 17.9
-    
     _car: EgoCar
-    _virtual_to_real_x_ratio: float
-    _virtual_to_real_y_ratio: float
-    
+    _map_converter: MapCoordinateConverterCarla
     
     def __init__(self, car: EgoCar, og_width: int, og_height: int) -> None:
         self._car = car
-        self._virtual_to_real_x_ratio = TeleportMotionPlanner.DIST_LEFT + TeleportMotionPlanner.DIST_RIGHT / og_width
-        self._virtual_to_real_y_ratio = TeleportMotionPlanner.DIST_FRONT + TeleportMotionPlanner.DIST_BACK / og_height
+        self._map_converter = MapCoordinateConverterCarla(36, 30, og_width, og_height)
 
-    def move_to(self, location: VehiclePose, start: Waypoint, goal: Waypoint) -> None:
-
-        dz = goal.z - start.z
-        dx = goal.x - start.x
-
-        new_heading = math.atan2(-dz, dx)        
-        move_dist = math.sqrt(dx*dx + dz*dz)
-
-        next_dx = move_dist * math.sin(new_heading) / self._virtual_to_real_x_ratio
-        next_dy = move_dist * math.cos(new_heading) / self._virtual_to_real_y_ratio
-
-        next_x = location.x + next_dx
-        next_y = location.y + next_dy
-
-        self._car.set_pose(next_x, next_y, new_heading)
+    def move_to(self, location: VehiclePose, goal: Waypoint) -> None:
+        pose = self._map_converter.convert_to_world_pose(location, goal)
+        self._car.set_pose(pose.x, pose.y, pose.heading)
 
 
 STATE_INITIALIZE = 1
@@ -253,11 +232,12 @@ class LocalPlanner:
     _plan_state: int
     _vision_module: CarlaSimulatorController
     _planned_local_path: PlannerResult
+    _frame_count: int
 
     def __init__(self, global_planner: SimpleGlobalPlanner, car: EgoCar, vision_module: CarlaSimulatorController) -> None:
         self._global_planner = global_planner
         self._bev_start_waypoint = None
-        self._og = OccupancyGrid(3, 5)
+        self._og = OccupancyGrid(30, 50)
         self._local_path_planner = AStarPlanner()
         self._car = car
         self._motion_planner = None
@@ -266,6 +246,7 @@ class LocalPlanner:
         self._plan_state  = STATE_INITIALIZE
         self._vision_module = vision_module
         self._planned_local_path = None
+        self._frame_count = 0
     
     def start(self):
         _plan_thr = threading.Thread(None, self._plan_run)
@@ -292,7 +273,7 @@ class LocalPlanner:
         frame = self._vision_module.get_frame()
         self._bev_start_waypoint = Waypoint(int(frame.shape[1]/2), int(frame.shape[0]/2))
         self._motion_planner = TeleportMotionPlanner(self._car, frame.shape[1], frame.shape[0])
-        self._slam = SimpleSlam(frame.shape[1], frame.shape[0], 3, 5)
+        self._slam = SimpleSlam(frame.shape[1], frame.shape[0], 30, 50)
         self._plan_state = STATE_PLANNING
     
     def _plan_run_state_planning(self):
@@ -306,12 +287,17 @@ class LocalPlanner:
             ##
         else:
             print ("invalid path!")
+            p = self._global_planner.get_next_waypoint(location, force_next=True)
+            if p is None:
+                self._plan_state = STATE_STOP
 
         self.plot(frame, self._bev_start_waypoint, self._planned_local_path.goal, self._planned_local_path.path)
 
+        k = 1
+
     def _plan_run_state_moving(self):
         location = self._slam.get_current_pose(self._car)
-        self._motion_planner.move_to(location, self._bev_start_waypoint, self._planned_local_path.goal)
+        self._motion_planner.move_to(location, self._planned_local_path.goal)
         time.sleep(0.5)
         self._plan_state = STATE_PLANNING
         time.sleep(0.5)
@@ -325,13 +311,15 @@ class LocalPlanner:
             for p in path:
                 frame[p.z, p.x, :] = [255, 255, 255]
         
-        cv2.imwrite("plan_outp.png", frame)
+        cv2.imwrite(f"results/planning/plan_outp_{self._frame_count}.png", frame)
+        self._frame_count += 1
 
 
     def plan(self, location: VehiclePose, frame: np.ndarray) -> PlannerResult:
         next_goal = self._global_planner.get_next_waypoint(location)
-        local_goal = self._og.find_best_local_goal_waypoint(frame, location, next_goal)
-        return self._local_path_planner.plan(frame, 1000, self._bev_start_waypoint, local_goal)
+        local_goal, frame = self._og.find_best_local_goal_waypoint(frame, location, next_goal)
+        #self.plot(frame, self._bev_start_waypoint, local_goal, None)
+        return self._local_path_planner.plan(frame, 1000000, self._bev_start_waypoint, local_goal)
         
 
 def execute_mission(conf: SimulationConfig) -> None:
@@ -344,6 +332,15 @@ def execute_mission(conf: SimulationConfig) -> None:
     print ("simulation started")
     car = simulation.get_vehicle()
     car.set_pose(start_point.x, start_point.y, start_point.heading)
+    
+    # p = start_point
+    # while p is not None:
+    #     location = car.get_location()
+    #     p = global_planner.get_next_waypoint(location)
+    #     car.set_pose(p.x, p.y, p.heading)
+    #     time.sleep(2)
+    # return
+
     local_planner = LocalPlanner(global_planner, car, simulation)
     print("waiting 5s")
     time.sleep(5)

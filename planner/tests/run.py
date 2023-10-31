@@ -79,10 +79,13 @@ class TestMapCoordinateConverter(unittest.TestCase):
         print(f"{p}")
 
 
+        a = math.atan2(pose.y - self_location.y, pose.x - self_location.x)
+
         pose2 = converter.convert_to_world_pose(self_location, p)
 
         self.assertAlmostEqual(pose2.x, pose.x, delta=0.5)
         self.assertAlmostEqual(pose2.y, pose.y, delta=0.5)
+        self.assertEqual(pose.heading, math.degrees(a))
 
     def test_self_location(self):
         converter = MapCoordinateConverterCarla(100, 100, 500, 500)

@@ -60,13 +60,17 @@ class SimpleGlobalPlanner:
 
         return True
 
-    def get_next_waypoint(self, location: VehiclePose) -> VehiclePose:
+    def get_next_waypoint(self, location: VehiclePose, force_next: bool = False) -> VehiclePose:
         if self._pos < 0:
             self._pos = 0
             return self._goal_poses[self._pos]
         
         dist = self._euclidian_dist(location, self._goal_poses[self._pos])
-        if dist < 20:
+        if dist < 20 or force_next:
             self._pos += 1
         
+
+        if self._pos >= len(self._goal_poses):
+            return None
+
         return self._goal_poses[self._pos]

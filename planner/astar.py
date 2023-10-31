@@ -145,18 +145,17 @@ class AStarPlanner:
 
     def classIsRoad(pclass: int) -> bool:
         return pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27 or pclass == 14
+    
 
     def _checkObstacle(self, frame: np.array, point: Waypoint) -> bool:
         if point.z < 0 or point.z >= frame.shape[0]:
             return True
         if point.x < 0 or point.x >= frame.shape[1]:
             return True
+        if frame[point.z][point.x][2] == 0:
+            return True
+        return not AStarPlanner.classIsRoad(frame[point.z][point.x][0])
 
-        pclass = frame[point.z][point.x][0]
-
-        return not AStarPlanner.classIsRoad(pclass)
-
-        # return self._checkColorEquals(frame,, , 0, 0, 0)
 
     def _searchValidXWaypoint(self,
                               bev_frame: np.array,
