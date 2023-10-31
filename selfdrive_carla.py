@@ -350,21 +350,22 @@ def execute_mission(conf: SimulationConfig) -> None:
 
 def main(argc: int, argv: List[str]):    
     config = SimulationConfig()
-    config.file =  "sim1.dat"
-    config.auto = False
-    execute_mission(config)
-    # if argc < 2:
-    #     UserCmd._help(argv)
-    #     exit(1)
+    # config.file =  "sim1.dat"
+    # config.auto = False
+    # execute_mission(config)
 
-    # config = UserCmd.proc_input(argc, argv)
+    if argc < 2:
+        UserCmd._help(argv)
+        exit(1)
 
-    # if config.execute_mission:
-    #     execute_mission(config)
-    # elif config.auto:
-    #     build_mission_auto(config)
-    # else:
-    #     build_mission_manual(config)
+    config = UserCmd.proc_input(config, argc, argv)
+
+    if config.execute_mission:
+        execute_mission(config)
+    elif config.auto:
+        MissionBuilder.build_mission_auto(config)
+    else:
+        MissionBuilder.build_mission_manual(config)
 
 
 if __name__ == '__main__':
