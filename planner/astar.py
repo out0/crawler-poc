@@ -1,4 +1,6 @@
 import numpy as np
+
+from planner.goal_point_discover import GoalPointDiscover
 from .waypoint import Waypoint
 from typing import List, Union
 import sys
@@ -35,12 +37,12 @@ COMPUTE_DIRECTION_POS = [
 
 MOVING_COST = [
     1,  # up
-    4,  # diag up
-    4,  # diag up
+    2,  # diag up
+    2,  # diag up
     # 200,  # side
     # 200,  # side
-    4,  # down!
-    4,  # down!
+    2,  # down!
+    2,  # down!
     500  # down!
 ]
 
@@ -143,53 +145,13 @@ class PlannerResult:
 
 class AStarPlanner:
 
-    def classIsRoad(pclass: int) -> bool:
-        return pclass == 1 or pclass == 24 or pclass == 25 or pclass == 26 or pclass == 27 or pclass == 14
-    
-
     def _checkObstacle(self, frame: np.array, point: Waypoint) -> bool:
         if point.z < 0 or point.z >= frame.shape[0]:
             return True
         if point.x < 0 or point.x >= frame.shape[1]:
             return True
-        if frame[point.z][point.x][2] == 0:
-            return True
-        return not AStarPlanner.classIsRoad(frame[point.z][point.x][0])
-
-
-    def _searchValidXWaypoint(self,
-                              bev_frame: np.array,
-                              p: Waypoint) -> Union[Waypoint, None]:
-
-        search_point = Waypoint(p.x - 1, p.z)
-
-        while search_point.x >= 0:
-            if not self._checkObstacle(bev_frame, search_point):
-                return search_point
-            search_point.x = search_point.x - 1
-
-        search_point = Waypoint(p.x + 1, p.z)
-
-        while search_point.x < bev_frame.shape[0]:
-            if not self._checkObstacle(bev_frame, search_point):
-                return search_point
-            search_point.x = search_point.x + 1
-
-        return None
+        return frame[point.z][point.x][2] < 0
     
-    def _searchValidZWaypoint(self,
-                              bev_frame: np.array,
-                              p: Waypoint) -> Union[Waypoint, None]:
-
-        search_point = Waypoint(p.x, p.z - 1)
-
-        while search_point.z > 0:
-            if not self._checkObstacle(bev_frame, search_point):
-                return search_point
-            search_point.z -= 1
-
-        return None
-
     def _add_points(self, p1: Waypoint, p2: Waypoint) -> Waypoint:
         return Waypoint(p1.x + p2.x, p1.z + p2.z)
 
@@ -231,45 +193,7 @@ class AStarPlanner:
         dx = p2.x - p1.x
         return math.sqrt(dz * dz + dx * dx)
 
-    def _find_best_x(self, frame, z):
-        best_lower_x = -1
-        best_higher_x = -1
-        best_size = 0
-        
-        x_init = -1
-        x_end = 0
-        len = frame.shape[1] - 1
-        i = 0
-        
-        while i < len:
-            if AStarPlanner.classIsRoad(frame[z, i, 0]):
-                if x_init < 0:
-                    x_init = i
-                    x_end = i
-                    i += 1
-
-                    while i < len and AStarPlanner.classIsRoad(frame[z, i, 0]):
-                        x_end = i
-                        i += 1
-                    
-                    if x_end - x_init > best_size:
-                        best_lower_x = x_init
-                        best_higher_x = x_end
-                        best_size = x_end - x_init
-                    
-                    x_init = -1
-            i += 1
-
-        return 0.5 * (best_higher_x + best_lower_x)
-
-    def _find_best_goal(self, frame, z = 0):
-        best_x = self._find_best_x(frame, z)
-
-        if best_x < 0:
-            return self._find_best_goal(frame, z + 1)
-        
-        return Waypoint(best_x, z)
-
+       
     def _timeout(self, start_time: int, max_exec_time_ms: int):
         return 1000*(time.time() - start_time) > max_exec_time_ms
 
@@ -277,22 +201,12 @@ class AStarPlanner:
              bev_frame: np.array,
              max_exec_time_ms: int,
              start: Waypoint,
-             goal: Waypoint = None) -> PlannerResult:
+             goal: Waypoint) -> PlannerResult:
 
         result = PlannerResult()
 
         result.start = start
         result.goal = goal
-        
-        # if self._checkObstacle(bev_frame, start):
-        #     result.start = self._searchValidZWaypoint(bev_frame, start)
-        #     if self._checkObstacle(bev_frame, start):
-        #         return result
-
-        if result.goal is None:
-            result.goal = self._find_best_goal(bev_frame)
-        elif self._checkObstacle(bev_frame, goal):
-            result.goal = self._searchValidXWaypoint(bev_frame, goal)
         
         if result.goal is None:
             result.invalid_goal = True
@@ -308,14 +222,17 @@ class AStarPlanner:
         open_list = PriorityQueue()
         open_list.put(QueuedPoint(start, 0))
 
-        found_goal = None
+        best_possible = None
+        best_distance_to_goal: float = MAX_FLOAT
+        search = True
 
-        while found_goal is None and not open_list.empty():
+
+        while search and not open_list.empty():
             curr_point = open_list.get(block=False)
 
             if self._timeout(start_time, max_exec_time_ms):
-                result.timeout = True
-                return result
+                search = False
+                continue
 
             plan_grid.set_closed(curr_point)
 
@@ -334,32 +251,24 @@ class AStarPlanner:
 
                 next_point = self._add_points(
                     curr_point, COMPUTE_DIRECTION_POS[dir])
+                
                 if plan_grid.is_closed(next_point):
                     continue
 
-                # if goal.z == next_point.z:
-                #     # any point in goal zone is valid for me!
-                #     found_goal = next_point
-                #     plan_grid.set_parent(next_point, curr_point)
-                #     continue
+                distance_to_goal = bev_frame[next_point.z, next_point.x, 1]
 
-                deviation_from_goal = abs(next_point.x - result.goal.x)
-                if next_point.x - result.goal.x > 0:
-                    inclination = (next_point.z - result.goal.z)/(next_point.x - result.goal.x)
-                else:
-                    inclination = 0
-
-                if result.goal.z == next_point.z and deviation_from_goal < 20:
-                    # any point in goal zone is valid for me!
-                    found_goal = next_point
-                    plan_grid.set_parent(next_point, curr_point)
+                if distance_to_goal < best_distance_to_goal:
+                    best_distance_to_goal = distance_to_goal
+                    best_possible = next_point
+                
+                if next_point.x == goal.x and next_point.z == goal.z:
+                    best_possible = next_point
+                    best_distance_to_goal = 0
+                    search = False
                     continue
 
-
-                g = curr_costs[G_CHEAPEST_COST_TO_PATH] + MOVING_COST[dir] + inclination
-                if deviation_from_goal > 20:
-                    g += 1000
-                h = self._compute_euclidian_distance(next_point, result.goal)
+                g = curr_costs[G_CHEAPEST_COST_TO_PATH] + MOVING_COST[dir] - bev_frame[next_point.z, next_point.x, 2]
+                h = distance_to_goal
                 f = g + h
 
                 next_costs = plan_grid.get_costs(next_point)
@@ -369,14 +278,16 @@ class AStarPlanner:
                     plan_grid.set_parent(next_point, curr_point)
                     open_list.put(QueuedPoint(next_point, f))
 
-        if found_goal is None:
+        if best_possible is None:
+            result.invalid_goal = True
+            result.valid = False
             return result
 
         path: List[Waypoint] = []
 
-        path.append(found_goal)
+        path.append(best_possible)
         
-        p = found_goal        
+        p = best_possible        
         parent = plan_grid.get_parent(p)
         while parent.x >= 0:
             path.append(parent)
@@ -388,4 +299,5 @@ class AStarPlanner:
 
         result.path = path
         result.valid = True
+        result.goal = best_possible
         return result

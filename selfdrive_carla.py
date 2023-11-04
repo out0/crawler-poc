@@ -21,6 +21,7 @@ from planner.occupancy_grid import OccupancyGrid
 from planner.vehicle_pose import VehiclePose
 from planner.simple_slam import SimpleSlam
 from planner.mapping.map_coordinate_converter_carla import MapCoordinateConverterCarla
+from planner.goal_point_discover import GoalPointDiscover
 import numpy as np
 import cv2, os
 
@@ -213,14 +214,20 @@ class TeleportMotionPlanner:
         pose = self._map_converter.convert_to_world_pose(location, goal)
         self._car.set_pose(pose.x, pose.y, pose.heading)
 
+    def stop(self) -> None:
+        self._car.stop()
 
 STATE_INITIALIZE = 1
 STATE_PLANNING = 2
 STATE_MOVING = 3
 STATE_STOP = 4
+STATE_SLOW_PLAN = 5
+
+CAR_WIDTH = 40
+CAR_HEIGHT = 70
+MINIMAL_DISTANCE = 10
 
 class LocalPlanner:
-    _og: OccupancyGrid
     _global_planner: SimpleGlobalPlanner
     _local_path_planner: AStarPlanner
     _bev_start_waypoint: Waypoint
@@ -233,11 +240,11 @@ class LocalPlanner:
     _vision_module: CarlaSimulatorController
     _planned_local_path: PlannerResult
     _frame_count: int
+    _goal_point_discover: GoalPointDiscover
 
     def __init__(self, global_planner: SimpleGlobalPlanner, car: EgoCar, vision_module: CarlaSimulatorController) -> None:
         self._global_planner = global_planner
         self._bev_start_waypoint = None
-        self._og = OccupancyGrid(30, 50)
         self._local_path_planner = AStarPlanner()
         self._car = car
         self._motion_planner = None
@@ -247,6 +254,7 @@ class LocalPlanner:
         self._vision_module = vision_module
         self._planned_local_path = None
         self._frame_count = 0
+        self._goal_point_discover = GoalPointDiscover(CAR_WIDTH, CAR_HEIGHT, MINIMAL_DISTANCE)
     
     def start(self):
         _plan_thr = threading.Thread(None, self._plan_run)
@@ -265,21 +273,25 @@ class LocalPlanner:
             if self._plan_state == STATE_INITIALIZE:
                 self._plan_run_state_initialize()
             elif self._plan_state == STATE_PLANNING:
-                self._plan_run_state_planning()
+                self._plan_run_state_planning(25000000)
             elif self._plan_state == STATE_MOVING:
                 self._plan_run_state_moving()
+            elif self._plan_state == STATE_SLOW_PLAN:
+                self._motion_planner.stop()
+                self._plan_run_state_planning(100000000)
 
     def _plan_run_state_initialize(self):
         frame = self._vision_module.get_frame()
         self._bev_start_waypoint = Waypoint(int(frame.shape[1]/2), int(frame.shape[0]/2))
         self._motion_planner = TeleportMotionPlanner(self._car, frame.shape[1], frame.shape[0])
-        self._slam = SimpleSlam(frame.shape[1], frame.shape[0], 30, 50)
+        self._slam = SimpleSlam(frame.shape[1], frame.shape[0], CAR_WIDTH, CAR_HEIGHT)
         self._plan_state = STATE_PLANNING
+        self._goal_point_discover.initialize(frame.shape)
     
-    def _plan_run_state_planning(self):
-        frame = self._vision_module.get_frame()
+    def _plan_run_state_planning(self, timeout_ms: int):
+        og = OccupancyGrid(self._vision_module.get_frame(), MINIMAL_DISTANCE)
         location = self._slam.get_current_pose(self._car)
-        self._planned_local_path = self.plan(location, frame)
+        self._planned_local_path = self.plan(location, timeout_ms, og)
 
         if self._planned_local_path.valid:
             print ("valid path!")
@@ -287,13 +299,14 @@ class LocalPlanner:
             ##
         else:
             print ("invalid path!")
-            p = self._global_planner.get_next_waypoint(location, force_next=True)
-            if p is None:
-                self._plan_state = STATE_STOP
+            self._plan_state = STATE_SLOW_PLAN
+            # p = self._global_planner.get_next_waypoint(location, force_next=True)
+            # if p is None:
+            #     self._plan_state = STATE_STOP
+        
+        self.plot(og, self._bev_start_waypoint, self._planned_local_path.goal, self._planned_local_path.path)
 
-        self.plot(frame, self._bev_start_waypoint, self._planned_local_path.goal, self._planned_local_path.path)
-
-        k = 1
+        
 
     def _plan_run_state_moving(self):
         location = self._slam.get_current_pose(self._car)
@@ -302,10 +315,12 @@ class LocalPlanner:
         self._plan_state = STATE_PLANNING
         time.sleep(0.5)
 
-    def plot (self, frame: np.ndarray, start: Waypoint, goal: Waypoint, path: List[Waypoint]):
-        frame = self._og.get_color_frame(frame)
+    def plot (self, og: OccupancyGrid, start: Waypoint, goal: Waypoint, path: List[Waypoint]):
+        frame = og.get_color_frame()
         frame[start.z, start.x, :] = [0, 255, 0]
-        frame[goal.z, goal.x, :] = [0, 0, 255]
+
+        if goal is not None:
+            frame[goal.z, goal.x, :] = [255, 255, 255]
 
         if not path is None:
             for p in path:
@@ -314,12 +329,11 @@ class LocalPlanner:
         cv2.imwrite(f"results/planning/plan_outp_{self._frame_count}.png", frame)
         self._frame_count += 1
 
-
-    def plan(self, location: VehiclePose, frame: np.ndarray) -> PlannerResult:
+    def plan(self, location: VehiclePose, timeout_ms: int, og: OccupancyGrid) -> PlannerResult:
         next_goal = self._global_planner.get_next_waypoint(location)
-        local_goal, frame = self._og.find_best_local_goal_waypoint(frame, location, next_goal)
-        #self.plot(frame, self._bev_start_waypoint, local_goal, None)
-        return self._local_path_planner.plan(frame, 1000000, self._bev_start_waypoint, local_goal)
+        next_local_goal = self._goal_point_discover.find_goal_waypoint(og, location, next_goal)
+        og.set_goal(next_local_goal)
+        return self._local_path_planner.plan(og.get_frame(), timeout_ms, self._bev_start_waypoint, next_local_goal)
         
 
 def execute_mission(conf: SimulationConfig) -> None:
@@ -350,22 +364,23 @@ def execute_mission(conf: SimulationConfig) -> None:
 
 def main(argc: int, argv: List[str]):    
     config = SimulationConfig()
-    # config.file =  "sim1.dat"
-    # config.auto = False
-    # execute_mission(config)
+    config.file =  "sim1.dat"
+    config.auto = False
+    execute_mission(config)
+    return
 
-    if argc < 2:
-        UserCmd._help(argv)
-        exit(1)
+    # if argc < 2:
+    #     UserCmd._help(argv)
+    #     exit(1)
 
-    config = UserCmd.proc_input(config, argc, argv)
+    # config = UserCmd.proc_input(config, argc, argv)
 
-    if config.execute_mission:
-        execute_mission(config)
-    elif config.auto:
-        MissionBuilder.build_mission_auto(config)
-    else:
-        MissionBuilder.build_mission_manual(config)
+    # if config.execute_mission:
+    #     execute_mission(config)
+    # elif config.auto:
+    #     MissionBuilder.build_mission_auto(config)
+    # else:
+    #     MissionBuilder.build_mission_manual(config)
 
 
 if __name__ == '__main__':

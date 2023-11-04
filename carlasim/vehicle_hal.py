@@ -158,7 +158,7 @@ class EgoCar:
     def set_pose(self, x: int, y: int, yaw: float) -> None:
         self.stop()
         t = self._ego_car.get_transform()
-        t.location =  carla.libcarla.Location(x, y, 0)
+        t.location =  carla.libcarla.Location(x, y, 10)
         t.rotation.yaw = yaw
         self._ego_car.set_transform(t)
         
