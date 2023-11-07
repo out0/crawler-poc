@@ -14,22 +14,19 @@ MAX_FLOAT = sys.float_info.max - 10
 DIR_TOP = 0
 DIR_TOP_LEFT = 1
 DIR_TOP_RIGHT = 2
-# DIR_LEFT = 3
-# DIR_RIGHT = 4
-# DIR_BOTTOM_LEFT = 5
-# DIR_BOTTOM = 6
-# DIR_BOTTOM_RIGHT = 7
-DIR_BOTTOM_LEFT = 3
-DIR_BOTTOM = 4
-DIR_BOTTOM_RIGHT = 5
+DIR_LEFT = 3
+DIR_RIGHT = 4
+DIR_BOTTOM_LEFT = 5
+DIR_BOTTOM = 6
+DIR_BOTTOM_RIGHT = 7
 
 
 COMPUTE_DIRECTION_POS = [
     Waypoint(0, -1),
     Waypoint(-1, -1),
     Waypoint(1, -1),
-    # Waypoint(-1, 0),
-    # Waypoint(1, 0),
+    Waypoint(-1, 0),
+    Waypoint(1, 0),
     Waypoint(0, 1),
     Waypoint(-1, 1),
     Waypoint(1, 1),
@@ -37,12 +34,12 @@ COMPUTE_DIRECTION_POS = [
 
 MOVING_COST = [
     1,  # up
-    2,  # diag up
-    2,  # diag up
-    # 200,  # side
-    # 200,  # side
-    2,  # down!
-    2,  # down!
+    5,  # diag up
+    5,  # diag up
+    50,  # side
+    50,  # side
+    200,  # down!
+    200,  # down!
     500  # down!
 ]
 
@@ -150,7 +147,7 @@ class AStarPlanner:
             return True
         if point.x < 0 or point.x >= frame.shape[1]:
             return True
-        return frame[point.z][point.x][2] < 0
+        return frame[point.z][point.x][2] == 0
     
     def _add_points(self, p1: Waypoint, p2: Waypoint) -> Waypoint:
         return Waypoint(p1.x + p2.x, p1.z + p2.z)
@@ -175,6 +172,14 @@ class AStarPlanner:
             frame,
             self._add_points(point, COMPUTE_DIRECTION_POS[DIR_TOP_RIGHT])
         )
+        res[DIR_LEFT] = not self._checkObstacle(
+            frame,
+            self._add_points(point, COMPUTE_DIRECTION_POS[DIR_LEFT])
+        )
+        res[DIR_RIGHT] = not self._checkObstacle(
+            frame,
+            self._add_points(point, COMPUTE_DIRECTION_POS[DIR_RIGHT])
+        )                
         res[DIR_BOTTOM_LEFT] = not self._checkObstacle(
             frame,
             self._add_points(point, COMPUTE_DIRECTION_POS[DIR_BOTTOM_LEFT])
@@ -186,6 +191,7 @@ class AStarPlanner:
             frame,
             self._add_points(point, COMPUTE_DIRECTION_POS[DIR_BOTTOM_RIGHT])
         )
+
         return res
 
     def _compute_euclidian_distance(self, p1: Waypoint, p2: Waypoint) -> float:
@@ -213,7 +219,6 @@ class AStarPlanner:
             return result
 
         start_time = time.time()
-
         plan_grid = NpPlanGrid(bev_frame.shape[1], bev_frame.shape[0])
         
         plan_grid.set_costs(start, [0, 0, 0])
@@ -225,7 +230,6 @@ class AStarPlanner:
         best_possible = None
         best_distance_to_goal: float = MAX_FLOAT
         search = True
-
 
         while search and not open_list.empty():
             curr_point = open_list.get(block=False)
@@ -265,7 +269,6 @@ class AStarPlanner:
                     best_possible = next_point
                     best_distance_to_goal = 0
                     search = False
-                    continue
 
                 g = curr_costs[G_CHEAPEST_COST_TO_PATH] + MOVING_COST[dir] - bev_frame[next_point.z, next_point.x, 2]
                 h = distance_to_goal

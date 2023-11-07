@@ -229,4 +229,6 @@ class GoalPointDiscover:
         
         return position
 
+    def get_map_coordinate_converter(self) -> MapCoordinateConverterCarla:
+        return self._map_coordinate_converter
     

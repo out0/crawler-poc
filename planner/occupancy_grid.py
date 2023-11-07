@@ -3,7 +3,6 @@ import math
 from numba import cuda
 from .waypoint import Waypoint
 import numpy as np
-from .mapping.map_coordinate_converter_carla import MapCoordinateConverterCarla
 
 DIST_FRONT = 16.3
 DIST_BACK = 13.5

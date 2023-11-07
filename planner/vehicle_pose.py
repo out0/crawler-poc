@@ -1,3 +1,5 @@
+import math
+
 class VehiclePose:
     x: float
     y: float
@@ -11,3 +13,10 @@ class VehiclePose:
 
     def __str__(self):
         return f"({self.x}, {self.y}, heading: {self.heading})"
+    
+
+    def distance_to(self, pose : 'VehiclePose') -> float:
+        dx = pose.x - self.x
+        dy = pose.y - self.y
+        return math.sqrt(dx*dx + dy*dy) 
+    

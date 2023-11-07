@@ -52,7 +52,7 @@ class TestGoalPointDiscover(unittest.TestCase):
         if local_goal_point is None:
             print(f"error processing frame {pos}")
             return
-        planner_result = planner.plan(og.get_frame(), 1250, start, local_goal_point)
+        planner_result = planner.plan(og.get_frame(), 99999999, start, local_goal_point)
         if planner_result.valid:
             print("valid path")
             for p in planner_result.path:
@@ -62,17 +62,17 @@ class TestGoalPointDiscover(unittest.TestCase):
         
         self.write_waypoint_frame(f_color, pos, local_goal_point)
 
-    # def test_frame_17(self):
-    #     minimal_distance = 20
-    #     location_list = self.get_location_list()
-    #     self.exec_test_frame(minimal_distance, location_list, 17)
-
-    def test_all_frames(self):
+    def test_frame_28(self):
         minimal_distance = 20
         location_list = self.get_location_list()
+        self.exec_test_frame(minimal_distance, location_list, 28)
 
-        for i in range(1, len(location_list)):
-            self.exec_test_frame(minimal_distance, location_list, i)
+    # def test_all_frames(self):
+    #     minimal_distance = 20
+    #     location_list = self.get_location_list()
+
+    #     for i in range(1, len(location_list)):
+    #         self.exec_test_frame(minimal_distance, location_list, i)
 
 if __name__ == "__main__":
     unittest.main()

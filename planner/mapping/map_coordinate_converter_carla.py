@@ -19,14 +19,14 @@ class MapCoordinateConverterCarla(MapCoordinateConverter):
         self._og_height = og_local_size_height
 
 
-    def build_translation_mat(self, x: float, y: float) -> np.ndarray:
+    def __build_translation_mat(self, x: float, y: float) -> np.ndarray:
         return np.array([
             [1, 0 , 0],
             [0, 1, 0],
             [x, y, 1]
         ])
 
-    def build_rotation_mat(self, angle: float) -> np.ndarray:
+    def __build_rotation_mat(self, angle: float) -> np.ndarray:
         r = math.radians(angle)
         c = math.cos(r)
         s = math.sin(r)
@@ -45,7 +45,7 @@ class MapCoordinateConverterCarla(MapCoordinateConverter):
         dx = x_for_center_on_location * self._virtual_to_real_x_ratio
         dy = z_for_center_on_location * self._virtual_to_real_y_ratio
 
-        m = self.build_rotation_mat(location.heading) @ self.build_translation_mat(location.x, location.y)
+        m = self.__build_rotation_mat(location.heading) @ self.__build_translation_mat(location.x, location.y)
         p = np.array([dy, dx, 1]) @ m
 
         new_heading = math.degrees(math.atan2(p[1] - location.y, p[0] - location.x))
@@ -58,7 +58,7 @@ class MapCoordinateConverterCarla(MapCoordinateConverter):
     
     def convert_to_waypoint(self, location: VehiclePose, target: VehiclePose, clip_coordinates: bool = True) -> Waypoint:
         
-        m = self.build_translation_mat(-location.x, -location.y) @ self.build_rotation_mat(-location.heading)
+        m = self.__build_translation_mat(-location.x, -location.y) @ self.__build_rotation_mat(-location.heading)
         p = np.array([target.x, target.y, 1]) @ m
 
         # invert x and y because world cood are x vertical, y horizontal, while local coord are x horizontal, z vertical inverted

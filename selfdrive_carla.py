@@ -7,7 +7,6 @@ import signal
 from carlasim.carla_sim_controller import CarlaSimulatorController
 from gi.repository import Gst, GLib
 from typing import List
-from carlasim.gps import CarlaGps
 import gi, time, math
 from carlasim.carla_client import CarlaClient
 from carlasim.vehicle_hal import EgoCar
@@ -20,7 +19,9 @@ from planner.waypoint import Waypoint
 from planner.occupancy_grid import OccupancyGrid
 from planner.vehicle_pose import VehiclePose
 from planner.simple_slam import SimpleSlam
-from planner.mapping.map_coordinate_converter_carla import MapCoordinateConverterCarla
+from planner.motion_planner import MotionPlanner
+from misc.mission_builder import SimulationConfig, MissionBuilder
+
 from planner.goal_point_discover import GoalPointDiscover
 import numpy as np
 import cv2, os
@@ -28,22 +29,6 @@ import cv2, os
 gi.require_version('Gst', '1.0')
 gi.require_version('GstRtspServer', '1.0')
 Gst.init(None)
-
-class SimulationConfig:
-    file: str
-    dist: float
-    auto: bool
-    execute_mission: bool
-    town: str
-    is_running: bool
-
-    def __init__(self) -> None:
-        self.file = None
-        self.dist = None
-        self.auto = False
-        self.execute_mission = True
-        self.town = 'Town07'
-        self.is_running = True
 
 class UserCmd:
 
@@ -113,110 +98,6 @@ def handler(signum, frame):
     
 
 
-def compute_euclidian_dist(l1, l2) -> float:
-    dx = (l1.x - l2.x)
-    dy = (l1.y - l2.y)
-    return math.sqrt (dx*dx + dy*dy)
-
-class MissionBuilder:
-
-    def __build_mission_auto_capture_handler(car: EgoCar, conf: SimulationConfig) -> None:
-        f = open(conf.file, 'w')
-        last_location = car.get_location()
-        f.write(f"{conf.town}\n")
-        f.write(f"{last_location.x}|{last_location.y}|{car.get_heading()}\n")
-        f.close()
-        
-        while sim_config.is_running:
-            l = car.get_location()
-            if compute_euclidian_dist(last_location, l) > conf.dist:
-                last_location = l
-                print (f"new goal point: ({last_location.x},{last_location.y})")
-                f = open(conf.file, '+a')
-                f.write(f"{last_location.x}|{last_location.y}|{car.get_heading()}\n")
-                f.close()
-            time.sleep(0.01)
-
-    def build_mission_auto(conf: SimulationConfig) -> None:
-        print (f"building simulation waypoint auto_capture for {conf.town} for every move of {conf.dist}")
-        client = CarlaClient(conf.town)
-        print("building the ego car")
-        car = EgoCar(client)\
-            .autopilot()\
-            .build()
-        car.set_pose(0,0,0)
-        print("waiting 5s")
-        time.sleep(5)
-        print(f"start capturing to {conf.file}. Press <enter> to terminate")
-
-        mission_auto_thr: threading.Thread
-        mission_auto_thr = threading.Thread(None, MissionBuilder.__build_mission_auto_capture_handler, "build_mission_auto_capture", [car, conf])
-        mission_auto_thr.start()
-
-        input()
-        print("terminating...")
-        sim_config.is_running = False
-        mission_auto_thr.join()
-        car.destroy()
-
-    def __on_autonomous_driving_state_change(val: bool):
-        pass
-
-    def build_mission_manual(conf: SimulationConfig) -> None:
-        print (f"building simulation waypoint manual capture for {conf.town}")
-
-        client = CarlaClient(conf.town)
-        print("building the ego car")
-        car = EgoCar(client)\
-            .build()
-
-        car.set_pose(0,0,0)
-        print("waiting 5s")
-        time.sleep(5)
-        print(f"start capturing to {conf.file}.")
-        print(f"Press enter for point capture")
-        print(f"Press x + enter for exit")
-
-        last_location = car.get_location()
-        f = open(conf.file, 'w')
-        print (f"capturing: {last_location}")
-        f.write(f"{last_location.x}|{last_location.y}|{car.get_heading()}\n")
-        f.close()
-
-        manual_control = RemoteController(MqttClient('127.0.0.1', 1883), car.get_actor(), MissionBuilder.__on_autonomous_driving_state_change)
-
-        input_str = ""
-        while (input_str != "x"):
-            input_str = input()
-            if input_str == "x":
-                continue
-        
-            l = car.get_location()
-            if l.x == last_location.x and l.y == last_location.y:
-                print ("nothing changed, the new point was ignored")
-                continue
-
-            last_location = l
-            print (f"capturing: {last_location}")
-            f = open(conf.file, '+a')
-            f.write(f"{last_location.x}|{last_location.y}|{car.get_heading()}\n")
-            f.close()
-
-class TeleportMotionPlanner:
-    _car: EgoCar
-    _map_converter: MapCoordinateConverterCarla
-    
-    def __init__(self, car: EgoCar, og_width: int, og_height: int) -> None:
-        self._car = car
-        self._map_converter = MapCoordinateConverterCarla(36, 30, og_width, og_height)
-
-    def move_to(self, location: VehiclePose, goal: Waypoint) -> None:
-        pose = self._map_converter.convert_to_world_pose(location, goal)
-        self._car.set_pose(pose.x, pose.y, pose.heading)
-
-    def stop(self) -> None:
-        self._car.stop()
-
 STATE_INITIALIZE = 1
 STATE_PLANNING = 2
 STATE_MOVING = 3
@@ -233,7 +114,7 @@ class LocalPlanner:
     _bev_start_waypoint: Waypoint
     _slam: SimpleSlam
     _car: EgoCar
-    _motion_planner: TeleportMotionPlanner
+    _motion_planner: MotionPlanner
     _plan_thr: threading.Thread
     _plan_thr_running: bool
     _plan_state: int
@@ -275,7 +156,7 @@ class LocalPlanner:
             elif self._plan_state == STATE_PLANNING:
                 self._plan_run_state_planning(25000000)
             elif self._plan_state == STATE_MOVING:
-                self._plan_run_state_moving()
+                self._plan_state = self._plan_run_state_moving()
             elif self._plan_state == STATE_SLOW_PLAN:
                 self._motion_planner.stop()
                 self._plan_run_state_planning(100000000)
@@ -283,10 +164,10 @@ class LocalPlanner:
     def _plan_run_state_initialize(self):
         frame = self._vision_module.get_frame()
         self._bev_start_waypoint = Waypoint(int(frame.shape[1]/2), int(frame.shape[0]/2))
-        self._motion_planner = TeleportMotionPlanner(self._car, frame.shape[1], frame.shape[0])
         self._slam = SimpleSlam(frame.shape[1], frame.shape[0], CAR_WIDTH, CAR_HEIGHT)
         self._plan_state = STATE_PLANNING
         self._goal_point_discover.initialize(frame.shape)
+        self._motion_planner = MotionPlanner(self._car, self._goal_point_discover.get_map_coordinate_converter())
     
     def _plan_run_state_planning(self, timeout_ms: int):
         og = OccupancyGrid(self._vision_module.get_frame(), MINIMAL_DISTANCE)
@@ -296,6 +177,7 @@ class LocalPlanner:
         if self._planned_local_path.valid:
             print ("valid path!")
             self._plan_state = STATE_MOVING
+            self._motion_planner.move_on_path(location, self._planned_local_path.path)
             ##
         else:
             print ("invalid path!")
@@ -309,11 +191,9 @@ class LocalPlanner:
         
 
     def _plan_run_state_moving(self):
-        location = self._slam.get_current_pose(self._car)
-        self._motion_planner.move_to(location, self._planned_local_path.goal)
-        time.sleep(0.5)
-        self._plan_state = STATE_PLANNING
-        time.sleep(0.5)
+        if self._motion_planner.is_moving():
+            return STATE_MOVING
+        return STATE_PLANNING
 
     def plot (self, og: OccupancyGrid, start: Waypoint, goal: Waypoint, path: List[Waypoint]):
         frame = og.get_color_frame()

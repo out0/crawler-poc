@@ -176,6 +176,9 @@ class EgoCar:
         self._vehicle_control.brake = 1.0
         self._ego_car.apply_control(self._vehicle_control)   
 
+    def set_engine_power(self, value: int):
+        self._set_engine_power(value)
+
     def forward(self):
         self._set_engine_power(100)
 
@@ -197,31 +200,10 @@ class EgoCar:
         """ Simulator-only - needs SLAM / RESEARCH """
         return self._ego_car.get_transform().rotation.yaw
 
-    # def _calculate_angle(self, x1, y1, x2, y2):
-    #     angle_rad = math.atan2(y2 - y1, x2 - x1)
-    #     angle_deg = math.degrees(angle_rad)    
-    #     return angle_deg
-
-    # def compute_heading_to(self, x2, y2):
-    #     current_location = self.get_location()
-    #     return self._calculate_angle(current_location.x, current_location.y, x2, y2)       
-
-    # def compute_distance_to(self, x2, y2) -> float:
-    #     current_location = self.get_location()
-    #     return math.sqrt((y2 - current_location.y)**2 + (x2 - current_location.x)**2)
+    def get_speed(self) -> float:
+        s = self._ego_car.get_velocity()
+        return  3.6 * math.sqrt(s.x * s.x + s.y * s.y + s.z * s.z)
 
 
-    def drive_to(self, x_goal:int, y_goal:int) -> None:
-        new_heading = self.compute_heading_to(x_goal, y_goal)
-        # self.steer(1.5 * (new_heading - self.get_heading()))
-        # self.stop()
-        # while int(self.get_heading()) != int(new_heading):
-        #     self.forward_slow()
-        # self.steer(0)
-        # last_d = self.compute_distance_to(x_goal, y_goal)
-        # self.forward()
-        # d = last_d
-        # while d <= last_d:
-        #     d = self.compute_distance_to(x_goal, y_goal)
-        # self.stop()
-        self.set_pose(x_goal, y_goal, new_heading)
+
+
