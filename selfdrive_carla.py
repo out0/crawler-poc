@@ -177,7 +177,7 @@ class LocalPlanner:
         if self._planned_local_path.valid:
             print ("valid path!")
             self._plan_state = STATE_MOVING
-            self._motion_planner.move_on_path(location, self._planned_local_path.path)
+            self._motion_planner.move_on_path(location, self._planned_local_path.global_goal, self._planned_local_path.path)
             ##
         else:
             print ("invalid path!")
@@ -211,9 +211,12 @@ class LocalPlanner:
 
     def plan(self, location: VehiclePose, timeout_ms: int, og: OccupancyGrid) -> PlannerResult:
         next_goal = self._global_planner.get_next_waypoint(location)
+        print (f"planning to reach {next_goal}")
         next_local_goal = self._goal_point_discover.find_goal_waypoint(og, location, next_goal)
         og.set_goal(next_local_goal)
-        return self._local_path_planner.plan(og.get_frame(), timeout_ms, self._bev_start_waypoint, next_local_goal)
+        result = self._local_path_planner.plan(og.get_frame(), timeout_ms, self._bev_start_waypoint, next_local_goal)
+        result.global_goal = next_goal
+        return result
         
 
 def execute_mission(conf: SimulationConfig) -> None:
@@ -225,6 +228,7 @@ def execute_mission(conf: SimulationConfig) -> None:
     
     print ("simulation started")
     car = simulation.get_vehicle()
+    print (f"teleporting to {start_point}")
     car.set_pose(start_point.x, start_point.y, start_point.heading)
     
     # p = start_point

@@ -1,6 +1,6 @@
 import numpy as np
 
-from planner.goal_point_discover import GoalPointDiscover
+from .vehicle_pose import VehiclePose
 from .waypoint import Waypoint
 from typing import List, Union
 import sys
@@ -104,6 +104,7 @@ class PlannerResult:
     invalid_goal: bool
     valid: bool
     timeout: bool
+    global_goal: VehiclePose
 
     def __init__(self) -> None:
         self.valid = False

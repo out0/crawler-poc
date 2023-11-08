@@ -34,6 +34,7 @@ class VelocityController:
     
     def stop(self) -> None:
         self._is_keeping_value = False
+        self._car.stop()
 
     def __driving_actuator(self, val: int) -> None:
         self._car.set_engine_power(val)
