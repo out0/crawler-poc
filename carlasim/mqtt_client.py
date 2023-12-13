@@ -34,7 +34,19 @@ class MqttClient:
     
         self._mqtt_client.subscribe(topic)
         return True
+    
+    def unsubscribeFrom(self, topic:str) -> bool:
+        self._callbacks[topic] = None
+        timeout = 200
+        while (not self._mqtt_client.is_connected() and timeout > 0):
+            time.sleep(0.01)
+            timeout = timeout - 1
         
+        if timeout == 0:
+            return False
+    
+        self._mqtt_client.unsubscribe(topic)
+        return True  
 
     def _on_receive(self, client, userdata, msg):
         if msg.topic not in self._callbacks.keys():
@@ -49,3 +61,4 @@ class MqttClient:
     def disconnect(self):
         self._mqtt_client.disconnect()
         self._run = False
+

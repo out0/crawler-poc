@@ -4,11 +4,6 @@ from .waypoint import Waypoint
 from carlasim.vehicle_hal import EgoCar
 
 class SimpleSlam:
-    DIST_FRONT = 16.3
-    DIST_BACK = 13.5
-    DIST_LEFT = 17.9
-    DIST_RIGHT = 17.9
-
     _x_ratio: float
     _y_ratio: float
     _x_center: float
@@ -17,8 +12,8 @@ class SimpleSlam:
     _bev_height: int
 
     def __init__(self, bev_width: int, bev_height, car_width: float, car_length: float) -> None:
-        self._x_ratio = ((SimpleSlam.DIST_LEFT + SimpleSlam.DIST_RIGHT) - car_width) / bev_width
-        self._y_ratio = ((SimpleSlam.DIST_FRONT + SimpleSlam.DIST_BACK) - car_length) / bev_height
+        self._x_ratio = (16 - car_width) / bev_width
+        self._y_ratio = (16 - car_length) / bev_height
         self._bev_width = bev_width
         self._bev_height = bev_height
         self._x_center = bev_width/2

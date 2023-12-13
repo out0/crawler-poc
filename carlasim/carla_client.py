@@ -5,9 +5,9 @@ class CarlaClient:
     _world: any
     _bplib : any
 
-    def __init__(self, town: str = 'Town03') -> None:
-        self._client = carla.Client('localhost', 2000)
-        self._client.set_timeout(110.0)
+    def __init__(self, town: str = 'Town01', ip: str = 'localhost', port: int = 2000, timeout: float = 110.0) -> None:
+        self._client = carla.Client(ip, port)
+        self._client.set_timeout(timeout)
         self._client.load_world(town)
         self._world = self._client.get_world()
         self._bplib = self._world.get_blueprint_library()

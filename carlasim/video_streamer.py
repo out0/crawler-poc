@@ -1,7 +1,7 @@
 from gi.repository import Gst
 import threading
 import queue
-from .carla_camera import CarlaCamera
+from carlasim.sensors.carla_camera import CarlaCamera
 import gi
 import numpy as np
 gi.require_version('Gst', '1.0')
@@ -49,6 +49,7 @@ class VideoStreamer:
         self._thr_stream = None
         self._frame_queue = None
 
+
     def start(self):
         try:
             self._pipeline = Gst.parse_launch(self._launch_string)
@@ -59,11 +60,13 @@ class VideoStreamer:
         self._appsrc = self._pipeline.get_child_by_name('source')
         self._duration = (1 / self._fps) * Gst.SECOND
         self._pipeline.set_state(Gst.State.PLAYING)
-        self._is_streaming = True
+        
 
         self._frame_queue = queue.Queue()
+        self._is_streaming = True
         self._thr_autostream = threading.Thread(None, self.__perform_streaming)
         self._thr_autostream.start()
+        
 
     def stop(self):
         self._is_streaming = False

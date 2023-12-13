@@ -104,9 +104,13 @@ STATE_MOVING = 3
 STATE_STOP = 4
 STATE_SLOW_PLAN = 5
 
-CAR_WIDTH = 40
-CAR_HEIGHT = 70
 MINIMAL_DISTANCE = 10
+
+# OG_HEIGHT = 30
+# OG_WIDTH = 36
+OG_HEIGHT = 32
+OG_WIDTH = 36
+
 
 class LocalPlanner:
     _global_planner: SimpleGlobalPlanner
@@ -135,7 +139,7 @@ class LocalPlanner:
         self._vision_module = vision_module
         self._planned_local_path = None
         self._frame_count = 0
-        self._goal_point_discover = GoalPointDiscover(CAR_WIDTH, CAR_HEIGHT, MINIMAL_DISTANCE)
+        self._goal_point_discover = GoalPointDiscover(OG_WIDTH, OG_HEIGHT, MINIMAL_DISTANCE)
     
     def start(self):
         _plan_thr = threading.Thread(None, self._plan_run)
@@ -154,17 +158,17 @@ class LocalPlanner:
             if self._plan_state == STATE_INITIALIZE:
                 self._plan_run_state_initialize()
             elif self._plan_state == STATE_PLANNING:
-                self._plan_run_state_planning(25000000)
+                self._plan_run_state_planning(1000)
             elif self._plan_state == STATE_MOVING:
                 self._plan_state = self._plan_run_state_moving()
             elif self._plan_state == STATE_SLOW_PLAN:
                 self._motion_planner.stop()
-                self._plan_run_state_planning(100000000)
+                self._plan_run_state_planning(250)
 
     def _plan_run_state_initialize(self):
         frame = self._vision_module.get_frame()
         self._bev_start_waypoint = Waypoint(int(frame.shape[1]/2), int(frame.shape[0]/2))
-        self._slam = SimpleSlam(frame.shape[1], frame.shape[0], CAR_WIDTH, CAR_HEIGHT)
+        self._slam = SimpleSlam(frame.shape[1], frame.shape[0], OG_WIDTH, OG_HEIGHT)
         self._plan_state = STATE_PLANNING
         self._goal_point_discover.initialize(frame.shape)
         self._motion_planner = MotionPlanner(self._car, self._goal_point_discover.get_map_coordinate_converter())
@@ -183,7 +187,7 @@ class LocalPlanner:
             print ("invalid path!")
             self._plan_state = STATE_SLOW_PLAN
             # p = self._global_planner.get_next_waypoint(location, force_next=True)
-            # if p is None:
+            # if p is None:w
             #     self._plan_state = STATE_STOP
         
         self.plot(og, self._bev_start_waypoint, self._planned_local_path.goal, self._planned_local_path.path)

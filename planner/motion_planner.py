@@ -39,17 +39,9 @@ class MotionPlanner:
         return VehiclePose(l.x, l.y, self._car.get_heading())
 
     def __compute_new_heading(self, p1: VehiclePose, p2: VehiclePose) -> float:
-        #angle = math.atan2(p2.y - p1.y, p2.x - p1.x)
-        quadrant = self.__find_quadrant(p1, p2)
-        dy = p2.y - p1.y
         dx = p2.x - p1.x
-        angle = math.atan(dy / dx)
-        angle = math.degrees(angle)
-        if (quadrant == MotionPlanner.QUADRANT_1 or quadrant == MotionPlanner.QUADRANT_3):
-            return angle
-        elif (quadrant == MotionPlanner.QUADRANT_2 or quadrant == MotionPlanner.QUADRANT_4):
-            return -angle
-        
+        dy = p2.y - p1.y
+        return math.degrees(math.atan2(dy, dx))
 
         
 
@@ -68,20 +60,24 @@ class MotionPlanner:
             current_pose = self.__current_pose()
             next_pose = poses[i]
             
-            if current_pose.x == next_pose.x and current_pose.y == next_pose.y:
-                i+=1
+            if not self.__check_is_ahead(next_pose):
+                i += 1
                 continue
 
-            next_pose.heading = self.__compute_new_heading(current_pose, next_pose)
-            print (f"motion to {next_pose}")
+            #next_pose.heading = self.__compute_new_heading(current_pose, next_pose)
+            #next_pose.heading = int(next_pose.heading)
+            print (f"[POINT #{i}] motion from {current_pose} to {next_pose}")
+
             self._direction_controller.set_heading(next_pose.heading)
            
             while self.__check_is_ahead(next_pose):
-                time.sleep(0.05)
-        
+                time.sleep(0.001)
             i += 1
         
-        self._velocity_controller.stop()
+        self._velocity_controller.stop()        
+        print ("finished moving on path")
+        self._motion_state = False
+        
     
     def __check_is_ahead (self, next: VehiclePose) -> bool:
         location = self.__current_pose()
@@ -148,7 +144,7 @@ class MotionPlanner:
         res: List[VehiclePose] = []
         i = 1
         for p in path:
-            #if i % 10 == 0:
+            #if i % 20 == 0:
             res.append(self._map_converter.convert_to_world_pose(location, p))
             #i += 1
         return res

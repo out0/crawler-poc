@@ -4,11 +4,6 @@ from numba import cuda
 from .waypoint import Waypoint
 import numpy as np
 
-DIST_FRONT = 16.3
-DIST_BACK = 13.5
-DIST_LEFT = 17.9
-DIST_RIGHT = 17.9
-
 INSIDE = 0  # 0000 
 LEFT = 1    # 0001 
 RIGHT = 2   # 0010 

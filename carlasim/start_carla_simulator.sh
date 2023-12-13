@@ -20,6 +20,7 @@ nvidia-docker run -it \
      --volume /tmp/.X11-unix:/tmp/.X11-unix \
      --runtime nvidia \
      --expose 2000-21000 \
+     -v /usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d \
      $CARLA_SIMULATION_IMAGE \
     /bin/bash -c /home/carla/CarlaUE4.sh
 
