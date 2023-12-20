@@ -2,6 +2,7 @@ from planner.waypoint import Waypoint
 from carlasim.carla_client import CarlaClient
 import carla
 import threading
+import math
 
 
 class PeriodicDataSensor:
@@ -109,13 +110,10 @@ class CarlaOdometer:
     def __init__(self, vehicle: any) -> None:
         self._vehicle = vehicle
 
-    def read(self) -> OdometerData:
-        data = OdometerData()
-        p = self._vehicle.get_velocity()
-        data.vel_x = p.x
-        data.vel_y = p.y
-        data.vel_z = p.z
-        return data
+
+    def read(self) -> float:
+        velocity = self._vehicle.get_velocity()
+        return 3.6 * math.sqrt(velocity.x ** 2 + velocity.y ** 2)
     
     def destroy(self) -> None:
         pass

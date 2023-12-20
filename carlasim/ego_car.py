@@ -95,49 +95,54 @@ class EgoCar:
         self._ego_car.destroy()
     
     def get_location(self) -> np.array:
-        """ Returns the vehicle's location on the simulator. This value should be used for debugging only
-
-        Returns:
-            _type_: _description_
-        """
+        # """ Returns the vehicle's location on the simulator. This value should be used for debugging only
+        # 
+        # Returns:
+        #     _type_: _description_
+        # """
         
         p = self._ego_car.get_location()        
         return np.array([p.x, p.y, p.z])
     
     def get_heading(self) -> float:
-        """Returns the vehicle's heading on the simulator. This value should be used for debugging only
-
-        Returns:
-            float: _description_
-        """
+        # """Returns the vehicle's heading on the simulator. This value should be used for debugging only
+        # Returns:
+        #     float: _description_
+        # """
         t = self._ego_car.get_transform()
         return t.rotation.yaw
     
     def set_pose(self, x: int, y: int, z: int, heading: float) -> None:
-        """Sets a new pose for the vehicle by teleporting it to the target location
-        Args:
-            x (int): x coordinate in carla's map
-            y (int): y coordinate in carla's map
-            z (int): z coordinate in carla's map
-            heading (float): car's yaw representing it's heading 
-        """
+        # """Sets a new pose for the vehicle by teleporting it to the target location
+        # Args:
+        #     x (int): x coordinate in carla's map
+        #     y (int): y coordinate in carla's map
+        #     z (int): z coordinate in carla's map
+        #     heading (float): car's yaw representing it's heading 
+        # """
         t = self._ego_car.get_transform()
         t.location =  carla.libcarla.Location(x, y, z)
         t.rotation.yaw = heading
         self._ego_car.set_transform(t)
         
     def set_autopilot(self, value: bool) -> None:
-        """Fallback of the control to the simulator for auto driving. This method should be used for debugging only
-        Args:
-            value (bool): turns on/off the simulator autopilot"""
+        # Fallback of the control to the simulator for auto driving. This method should be used for debugging only
+        # Args:
+        #    value (bool): turns on/off the simulator autopilot
         self._ego_car.set_autopilot(value)
         
     def set_power(self, power: int) -> None:
+        print (f"new power: {power}")
         self._vehicle_control.throttle = abs(power / 240)
-        self._vehicle_control.reverse = power < 0
+        # self._vehicle_control.reverse = False
         self._vehicle_control.brake = 0.0
         self._ego_car.apply_control(self._vehicle_control)
-        
+
+    def set_brake(self, brake: float) -> None:
+        self._vehicle_control.throttle = 0.0
+        self._vehicle_control.brake = brake
+        self._ego_car.apply_control(self._vehicle_control)
+
     def set_steering(self, angle: int) -> None:
         self._vehicle_control.steer = angle / 40
         self._ego_car.apply_control(self._vehicle_control)
