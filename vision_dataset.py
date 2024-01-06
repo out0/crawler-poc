@@ -13,7 +13,7 @@ from segmentation.frame_segmenter_onnx_runtime\
 from utils.func_timing import time_exec
 from utils.video_output import OutputWriter
 from planner.astar import AStarPlanner, PlannerResult
-from planner.waypoint import Waypoint
+from model.waypoint import Waypoint
 
 if __name__ == '__main__':
     args = sys.argv[1:]

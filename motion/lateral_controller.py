@@ -1,51 +1,91 @@
-class LateralController:
-    
-     def __init__(self) -> None:
+from model.waypoint import Waypoint
+from model.vehicle_pose import VehiclePose
+import math
+import carla
+
+class ReferencePath:
+    _p1: VehiclePose
+    _p2: VehiclePose
+
+    def __init__(self, p1: VehiclePose, p2: VehiclePose) -> None:
+        self._p1 = p1
+        self._p2 = p2
         pass
-     
-     def __loop(self, dt: float) -> None:
-         # Change the steer output with the lateral controller. 
-            steer_output = 0
 
-            # Use stanley controller for lateral control
-         k_e = 0.3
-         slope = (waypoints[-1][1]-waypoints[0][1])/ (waypoints[-1][0]-waypoints[0][0])
-            a = -slope
-            b = 1.0
-            c = (slope*waypoints[0][0]) - waypoints[0][1]
+    def get_nearest_point(self, p: VehiclePose) -> VehiclePose:
+        dx= self._p2.x - self._p1.x
+        dy = self._p2.y - self._p1.y
+        det = dx*dx + dy*dy
+        a = (dy*(p.y - self._p1.y)+dx*(p.x - self._p1.x))/det
+        return VehiclePose(self._p1.x + a*dx, self._p1.y + a*dy, self._p1.heading)
 
-            # heading error
-            yaw_path = np.arctan2(waypoints[-1][1]-waypoints[0][1], waypoints[-1][0]-waypoints[0][0])
-            # yaw_path = np.arctan2(slope, 1.0)  # This was turning the vehicle only to the right (some error)
-            yaw_diff_heading = yaw_path - yaw 
-            if yaw_diff_heading > np.pi:
-                yaw_diff_heading -= 2 * np.pi
-            if yaw_diff_heading < - np.pi:
-                yaw_diff_heading += 2 * np.pi
+    def distance_to_line(self, p: VehiclePose) -> float:
+        dx = self._p2.x - self._p1.x
+        dy = self._p2.y - self._p1.y
+       
+        num = abs(dx*(self._p1.y - p.y) - (self._p1.x - p.x)*dy)
+        den = math.sqrt((dx ** 2 + dy ** 2))
+        return num / den
 
-            # crosstrack erroe
-            current_xy = np.array([x, y])
-            crosstrack_error = np.min(np.sum((current_xy - np.array(waypoints)[:, :2])**2, axis=1))
-            yaw_cross_track = np.arctan2(y-waypoints[0][1], x-waypoints[0][0])
-            yaw_path2ct = yaw_path - yaw_cross_track
-            if yaw_path2ct > np.pi:
-                yaw_path2ct -= 2 * np.pi
-            if yaw_path2ct < - np.pi:
-                yaw_path2ct += 2 * np.pi
-            if yaw_path2ct > 0:
-                crosstrack_error = abs(crosstrack_error)
-            else:
-                crosstrack_error = - abs(crosstrack_error)
-            yaw_diff_crosstrack = np.arctan(k_e * crosstrack_error / (v))
+    def compute_heading(self) -> float:
+        dy = self._p2.y - self._p1.y
+        dx = self._p2.x - self._p1.x
+        return math.atan2(dy, dx)
 
-            # final expected steering
-            steer_expect = yaw_diff_crosstrack + yaw_diff_heading
-            if steer_expect > np.pi:
-                steer_expect -= 2 * np.pi
-            if steer_expect < - np.pi:
-                steer_expect += 2 * np.pi
-            steer_expect = min(1.22, steer_expect)
-            steer_expect = max(-1.22, steer_expect)
+class LateralController:
+    __MAX_RANGE: float = 40.0
+    _current_pose: callable
+    _odometer: callable
+    _set_steering_angle: callable
+    _vehicle_length: float
+    _ref_path: ReferencePath
 
-            #update
-            steer_output = steer_expect
+
+    def __init__(self, vehicle_length: float, slam_find_current_pose: callable, odometer: callable, set_steering_angle: callable) -> None:
+        self._current_pose = slam_find_current_pose
+        self._odometer = odometer
+        self._set_steering_angle = set_steering_angle
+        self._vehicle_length = vehicle_length
+
+    def set_reference_path(self, p1: VehiclePose, p2: VehiclePose):
+        self._ref_path = ReferencePath(p1, p2)
+
+    def __get_ref_point(self) -> VehiclePose:
+        cg: VehiclePose = self._current_pose()
+        a = math.radians(cg.heading)
+        return VehiclePose(cg.x + math.cos(a) * self._vehicle_length, cg.y + math.sin(a) * self._vehicle_length, cg.heading)
+
+    def __fix_range(heading: float) -> float:
+        return min(
+                max(heading, -LateralController.__MAX_RANGE),
+                LateralController.__MAX_RANGE)
+
+
+    def loop(self, dt: float, world) -> None:
+        ego_ref = self.__get_ref_point()
+        cg: VehiclePose = self._current_pose()
+
+        world.debug.draw_string(carla.Location(cg.x, cg.y, 2), 'CG', draw_shadow=False,
+                                       color=carla.Color(r=0, g=255, b=0), life_time=120.0,
+                                       persistent_lines=True)
+        
+        world.debug.draw_string(carla.Location(ego_ref.x, ego_ref.y, 2), 'Ref', draw_shadow=False,
+                                       color=carla.Color(r=255, g=0, b=0), life_time=120.0,
+                                       persistent_lines=True)
+        
+        nearest = self._ref_path.get_nearest_point(ego_ref)
+
+        world.debug.draw_string(carla.Location(nearest.x, nearest.y, 2), 'N', draw_shadow=False,
+                                       color=carla.Color(r=0, g=0, b=255), life_time=120.0,
+                                       persistent_lines=True)
+
+        current_speed = self._odometer()
+
+        crosstrack_error = self._ref_path.distance_to_line(ego_ref)
+        heading_error = self._ref_path.compute_heading() - math.radians(ego_ref.heading) 
+
+        if current_speed > 0:
+            new_heading = math.degrees(heading_error + math.atan(crosstrack_error / current_speed))
+            new_heading = LateralController.__fix_range(new_heading)
+            print(f"[{dt}] new heading computed: {new_heading}")
+            self._set_steering_angle(new_heading)

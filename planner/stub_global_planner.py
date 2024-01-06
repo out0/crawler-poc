@@ -6,8 +6,13 @@
 
 from typing import List
 import os, math
-from .vehicle_pose import VehiclePose
-from .waypoint import Waypoint
+from model.waypoint import Waypoint
+from model.vehicle_pose import VehiclePose
+from model.global_planner import GlobalPlanner
+
+class GlobalPlanner:
+    def get_next_goal_pose(self) -> VehiclePose:
+        pass
 
 
 class SimpleMissionSaver:
@@ -26,7 +31,7 @@ class SimpleMissionSaver:
         f.write(f"{p.x}|{p.z}")
         f.close()
 
-class SimpleGlobalPlanner:
+class StubGlobalPlanner (GlobalPlanner):
     _goal_poses: List[VehiclePose]
     _pos: int
 
@@ -47,12 +52,8 @@ class SimpleGlobalPlanner:
         f = open(file=file, mode='+r')
         lines = f.readlines()
         
-        skip = True
         for line in lines:
-            if skip:
-                skip = False
-                continue
-            vals = line.split('|')
+            vals = line.split(';')
             pose = VehiclePose(float(vals[0]),float(vals[1]),float(vals[2]))
             self._goal_poses.append(pose)
 
@@ -60,7 +61,7 @@ class SimpleGlobalPlanner:
 
         return True
 
-    def get_next_waypoint(self, location: VehiclePose) -> VehiclePose:
+    def get_next_goal_pose(self, location: VehiclePose) -> VehiclePose:
         if self._pos < 0:
             self._pos = 0
             return self._goal_poses[self._pos]
@@ -76,3 +77,6 @@ class SimpleGlobalPlanner:
             return None
 
         return self._goal_poses[self._pos]
+    
+    def get_all_poses(self):
+        return self._goal_poses

@@ -132,7 +132,6 @@ class EgoCar:
         self._ego_car.set_autopilot(value)
         
     def set_power(self, power: int) -> None:
-        print (f"new power: {power}")
         self._vehicle_control.throttle = abs(power / 240)
         # self._vehicle_control.reverse = False
         self._vehicle_control.brake = 0.0

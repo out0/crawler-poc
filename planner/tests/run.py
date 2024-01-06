@@ -4,7 +4,7 @@ sys.path.append("../..")
 import unittest
 from mapping.map_coordinate_converter_carla import MapCoordinateConverterCarla
 from planner.vehicle_pose import VehiclePose
-from planner.waypoint import Waypoint
+from model.waypoint import Waypoint
 import math
 
 

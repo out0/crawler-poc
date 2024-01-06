@@ -20,26 +20,26 @@ class SimulationController:
     __ego_car: EgoCar
     __manual_control: EgoCarRemoteController
     __manual_control_status: str
-    __auto_pose_log_status: str
     __mqtt_client: MqttClient
     __autopilot_status: str
     __front_camera_status: str
     __bev_camera_status: str
+    _logger: AutoSimulationLogger
 
     def __init__(self) -> None:
         self.__carla_client = CarlaClient(town='Town07')
         self.__ego_car = EgoCar(self.__carla_client)
         self.__manual_control_status = "OFF"
-        self.__auto_pose_log_status = "OFF"
         self.__autopilot_status = "OFF"
         self.__manual_control = None
         self.__mqtt_client = None
         self.__front_camera_status = "OFF"
-        self.__bev_camera_status = "OFF"        
+        self.__bev_camera_status = "OFF"
+        self._logger = None  
         pass
 
     def __initialize_ego_car(self) -> None:
-        self.__ego_car.set_pose(0, 0, 0, 0)
+        self.__ego_car.set_pose(-100, 0, 0, 0)
         self.__ego_car.set_power(0)
         self.__ego_car.set_steering(0)
 
@@ -52,13 +52,19 @@ class SimulationController:
     
     
     def __get_option(self) -> int:
+        if self._logger is None:
+            auto_pose_log_status = "OFF"
+        else:
+            auto_pose_log_status = "ON"
+
         os.system("clear")
+
         print ("1. reset")
         print (f"2. toggle manual control [{self.__manual_control_status}]")
         print (f"3. toggle autopilot [{self.__autopilot_status}]")
         print ("4. run mission file")
         print ("5. log current pose")
-        print (f"6. auto pose log [{self.__auto_pose_log_status}]")
+        print (f"6. auto pose log [{auto_pose_log_status}]")
         print ("7. cameras")
         print ("8. print gstreamer")
         print ("x. exit")
@@ -104,7 +110,9 @@ class SimulationController:
     def __stop_background_execution(self) -> None:
         self.__ego_car.set_autopilot(False)
         self.__set_manual_control(False)
-        pass
+        if self._logger is not None:
+            self._logger.destroy()
+            self._logger = None
     
     def __set_manual_control(self, status: bool) -> None:
         if status:
@@ -255,7 +263,7 @@ class SimulationController:
 
     def __log_current_pose_periodically(self) -> None:
 
-        if self.__auto_pose_log_status == "OFF":
+        if self._logger == None:
             print ("")
             print ("1. auto-log by distance")
             print ("2. auto-log by time span")
@@ -270,15 +278,18 @@ class SimulationController:
                     dist = int(dist)
                 except:
                     return
-                AutoSimulationLogger(self.__ego_car, MISSION_FILE, trigger_dist=dist)
+                self._logger = AutoSimulationLogger(self.__ego_car, MISSION_FILE, trigger_dist=dist)
+
             elif opt == '2':
                 time = input("time (ms): ")
                 try:
                     time = int(time)
                 except:
                     return
-                AutoSimulationLogger(self.__ego_car, MISSION_FILE, trigger_time_ms=time)
-        
+                self._logger = AutoSimulationLogger(self.__ego_car, MISSION_FILE, trigger_time_ms=time)
+        else:
+            self._logger.destroy()
+            self._logger = None
     
 def main():
     controller = SimulationController()

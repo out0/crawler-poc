@@ -1,4 +1,4 @@
-from planner.waypoint import Waypoint
+from model.waypoint import Waypoint
 from planner.vehicle_pose import VehiclePose
 from .map_coordinate_converter import MapCoordinateConverter
 import numpy as np

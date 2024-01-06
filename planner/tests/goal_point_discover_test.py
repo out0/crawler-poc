@@ -3,7 +3,7 @@ sys.path.append("..")
 sys.path.append("../..")
 import unittest, math
 from planner.vehicle_pose import VehiclePose
-from planner.waypoint import Waypoint
+from model.waypoint import Waypoint
 from planner.goal_point_discover import GoalPointDiscover
 import numpy as np
 from planner.occupancy_grid import OccupancyGrid

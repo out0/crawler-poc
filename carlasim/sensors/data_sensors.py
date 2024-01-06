@@ -1,4 +1,4 @@
-from planner.waypoint import Waypoint
+from model.waypoint import Waypoint
 from carlasim.carla_client import CarlaClient
 import carla
 import threading

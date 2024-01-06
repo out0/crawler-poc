@@ -3,7 +3,7 @@ sys.path.append("..")
 sys.path.append("../..")
 import unittest, math
 from planner.vehicle_pose import VehiclePose
-from planner.simple_slam import SimpleSlam
+from planner.stub_slam import SimpleSlam
 from carlasim.carla_sim_controller import CarlaSimulatorController
 from planner.motion.velocity_controller import VelocityController
 import gi, time, math

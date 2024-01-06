@@ -1,7 +1,7 @@
 import sys
 import math
 from numba import cuda
-from .waypoint import Waypoint
+from model.waypoint import Waypoint
 import numpy as np
 
 INSIDE = 0  # 0000 

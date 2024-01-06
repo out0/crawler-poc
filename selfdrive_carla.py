@@ -11,14 +11,14 @@ import gi, time, math
 from carlasim.carla_client import CarlaClient
 from carlasim.vehicle_hal import EgoCar
 import threading
-from planner.simple_global_planner import SimpleGlobalPlanner, SimpleMissionSaver
+from planner.stub_global_planner import SimpleGlobalPlanner, SimpleMissionSaver
 from carlasim.mqtt_client import MqttClient
 from carlasim.remote_controller import RemoteController
 from planner.astar import AStarPlanner, PlannerResult
-from planner.waypoint import Waypoint
+from model.waypoint import Waypoint
 from planner.occupancy_grid import OccupancyGrid
 from planner.vehicle_pose import VehiclePose
-from planner.simple_slam import SimpleSlam
+from planner.stub_slam import SimpleSlam
 from planner.motion_planner import MotionPlanner
 from misc.mission_builder import SimulationConfig, MissionBuilder
 
