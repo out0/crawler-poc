@@ -131,10 +131,11 @@ class EgoCar:
         #    value (bool): turns on/off the simulator autopilot
         self._ego_car.set_autopilot(value)
         
-    def set_power(self, power: int) -> None:
-        self._vehicle_control.throttle = abs(power / 240)
+    def set_power(self, power: float) -> None:
+        #self._vehicle_control.throttle = abs(power / 240)
         # self._vehicle_control.reverse = False
         self._vehicle_control.brake = 0.0
+        self._vehicle_control.throttle = power
         self._ego_car.apply_control(self._vehicle_control)
 
     def set_brake(self, brake: float) -> None:

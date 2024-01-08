@@ -50,8 +50,9 @@ class LongitudinalController:
         if throttle - self._prev_throttle > 0.1:
             throttle = self._prev_throttle + 0.1
         
-        self._prev_throttle = throttle      
-        self._power_actuator(240 * throttle)
+        self._prev_throttle = throttle
+        print (f"[long controller] throttle: {throttle}") 
+        self._power_actuator(throttle)
 
 
     def set_speed(self, desired_speed: float) -> None:

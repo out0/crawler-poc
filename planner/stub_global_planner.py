@@ -54,7 +54,7 @@ class StubGlobalPlanner (GlobalPlanner):
         
         for line in lines:
             vals = line.split(';')
-            pose = VehiclePose(float(vals[0]),float(vals[1]),float(vals[2]))
+            pose = VehiclePose(float(vals[0]),float(vals[1]),float(vals[2]), 10)
             self._goal_poses.append(pose)
 
         self._pos = -1

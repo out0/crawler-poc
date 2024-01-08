@@ -12,4 +12,4 @@ class StubSLAM (SLAM):
     def estimate_ego_pose(self) -> VehiclePose:
         location = self._car.get_location()
         heading = self._car.get_heading()
-        return VehiclePose(location[0], location[1], heading)
+        return VehiclePose(location[0], location[1], heading, 0)
