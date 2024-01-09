@@ -62,18 +62,28 @@ class MotionController (DiscreteComponent):
 
         pos = self._path_position_finder.find_next_pos(self._last_pos, MotionController.MAX_RANGE_SQUARED, current_pose)
 
-        # if pos < 0:
-        #     print ("path position failed")
-        #     self._on_invalid_path()
-        #     self._invalid_state = True
-        #     return
+       
+
+        if pos < 0:
+            print ("path position failed")
+            self._on_invalid_path()
+            self._invalid_state = True
+            return
         
-        if pos >= 0 and pos != self._last_pos:
+
+        if pos != self._last_pos:
+            if pos >= len(self._list) - 1:
+                print("finished motion control")
+                self._on_invalid_path()
+                self._invalid_state = True
+                return
+            
+            print (f"controlling movement from {pos} to {pos+1}")            
             self._last_pos = pos
             p1 = self._list[pos]
             p2 = self._list[pos + 1]
             self._lateral_controller.set_reference_path(p1, p2)
-            self._longitudinal_controller.set_speed(30)
+            self._longitudinal_controller.set_speed(20)
 
         self._lateral_controller.loop(dt)
         self._longitudinal_controller.loop(dt)

@@ -27,12 +27,13 @@ from carlasim.mqtt_client import MqttClient
 from carlasim.ego_car_remote_controller import EgoCarRemoteController
 mqtt_client = MqttClient("10.0.1.5", 1883)
 manual_control = EgoCarRemoteController(mqtt_client, ego)
+ctrl: MotionController = None
 
 world = client.get_world()
 
 for w in global_planner.get_all_poses():    
     world.debug.draw_string(carla.Location(w.x, w.y, 2), 'O', draw_shadow=False,
-                                       color=carla.Color(r=255, g=0, b=0), life_time=120.0,
+                                       color=carla.Color(r=255, g=0, b=0), life_time=1200.0,
                                        persistent_lines=True)
     
 def set_sterr(angle: float) -> None:
@@ -40,12 +41,15 @@ def set_sterr(angle: float) -> None:
     pass
 
 def invalid_path() -> None:
-    print("motion has reached an invalid path")
+    print("current path is no longer valid")
+    ctrl.destroy()
+    ego.set_brake(1.0)
+    ego.set_power(0.0)
 
 slam = StubSLAM(ego)
 
 ctrl = MotionController (
-    period_ms=100,
+    period_ms=20,
     on_invalid_path=invalid_path, 
     odometer=lambda : ego.odometer.read(),
     power_actuator=lambda p: ego.set_power(p),
@@ -55,9 +59,4 @@ ctrl = MotionController (
 )
 
 ctrl.set_path(global_planner.get_all_poses())
-
 ctrl.start()
-
-input()
-
-ctrl.destroy()

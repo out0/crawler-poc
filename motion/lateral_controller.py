@@ -47,11 +47,11 @@ class LateralController:
         crosstrack_error = self._ref_path.distance_to_line(ego_ref)
         heading_error = path_heading - math.radians(ego_ref.heading) 
 
-        print(f"path_heading = {math.degrees(path_heading)}, vehicle heading: {ego_ref.heading}")
+       # print(f"path_heading = {math.degrees(path_heading)}, vehicle heading: {ego_ref.heading}")
 
 
         if current_speed > 0:
             new_heading = math.degrees(heading_error + math.atan(crosstrack_error / current_speed))
             new_heading = LateralController.__fix_range(new_heading)
-            print(f"[lat controller] new heading: {new_heading}, ke = {crosstrack_error}, he = {heading_error}")
+            #print(f"[lat controller] new heading: {new_heading}, ke = {crosstrack_error}, he = {heading_error}")
             self._steering_actuator(new_heading)

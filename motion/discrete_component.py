@@ -43,3 +43,6 @@ class DiscreteComponent:
 
     def _loop(self, dt: float) -> None:
         pass
+
+    def manual_loop_run(self, dt: float) -> None:
+        self._loop(dt)

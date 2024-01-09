@@ -1,6 +1,20 @@
 from model.vehicle_pose import VehiclePose
 import math
 
+class RangeResult:
+    is_between_ref_points_in_path: bool
+    estimated_dist: float
+    proportion_to_p2: float
+
+    def __init__(self,
+                is_between_ref_points_in_path: bool,
+                estimated_dist: float,
+                proportion_to_p2: float) -> None:
+        self.is_between_ref_points_in_path = is_between_ref_points_in_path
+        self.estimated_dist = estimated_dist
+        self.proportion_to_p2 = proportion_to_p2
+
+
 class ReferencePath:
     _p1: VehiclePose
     _p2: VehiclePose
@@ -57,7 +71,7 @@ class ReferencePath:
         dy = p1.y - p2.y
         return dx ** 2 + dy ** 2
     
-    def check_in_range(self, ego_pos: VehiclePose, max_range_squared: float) -> [bool, float]:
+    def check_in_range(self, ego_pos: VehiclePose, max_range_squared: float) -> RangeResult:
         nearest = self.get_nearest_point(ego_pos)
         
         l =  math.floor(self.compute_dbl_euclidian_dist(self._p1, self._p2))
@@ -67,9 +81,9 @@ class ReferencePath:
         dist_from_p2 =  math.floor(self.compute_dbl_euclidian_dist(self._p2, nearest))
         
         if dist_from_p1 > l or dist_from_p1 >= max_range_squared:
-            return [False, -1]
+            return RangeResult(False, dist_from_p1, -1)
         
         if dist_from_p2 > l or dist_from_p2 >= max_range_squared:
-            return [False, -1]
+            return RangeResult(False, dist_from_p2, -1)
         
-        return [True, dist_from_p2/l]
+        return RangeResult(True, dist_from_p2, dist_from_p2/l)

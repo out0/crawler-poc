@@ -1,5 +1,5 @@
 from model.vehicle_pose import VehiclePose
-from motion.reference_path import ReferencePath
+from motion.reference_path import ReferencePath, RangeResult
 from typing import List
 
 class PathPositionFinder:
@@ -19,20 +19,35 @@ class PathPositionFinder:
 
     def find_next_pos(self, last_pos: int, max_range_squared: float, curr_pose: VehiclePose) -> int:
  
-        while last_pos < (len(self._path) - 1):
-            self._ref_path.update_path(self._path[last_pos], self._path[last_pos + 1])
+        pos = last_pos
+        lower_dist = 999999999
+        best_pos = pos
+        jumps = 0
 
-            in_range, percent_left_to_end = self._ref_path.check_in_range(curr_pose, max_range_squared)
+        while pos < (len(self._path) - 1):
+            self._ref_path.update_path(self._path[pos], self._path[pos + 1])
 
-            if in_range:
-                if percent_left_to_end <= 0.1:
-                    last_pos += 1
-                
-                print (f"in range for [{last_pos} - {last_pos+1}]")
-                return last_pos
-            
-            last_pos += 1
+            result = self._ref_path.check_in_range(curr_pose, max_range_squared)
 
-        return -1
+            if result.is_between_ref_points_in_path:
+                if result.proportion_to_p2 <= 0.1:
+                    #print(f"[path finder] pos: {last_pos} proportion_to_p2 <= 0.1: {result.proportion_to_p2}")
+                    return pos + 1
+                return pos
+
+            else:
+                if lower_dist > result.estimated_dist:
+                    best_pos = pos
+                lower_dist = min(lower_dist, result.estimated_dist)
+                  
+            pos += 1
+            jumps += 1
+
+            if jumps > 5:
+                #print("[path finder] pos: {last_pos} too much jumps")
+                break
+
+        #print(f"[path finder] pos: {last_pos} not in range, the best option is {best_pos}")
+        return best_pos
 
 

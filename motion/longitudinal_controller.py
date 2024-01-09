@@ -51,7 +51,7 @@ class LongitudinalController:
             throttle = self._prev_throttle + 0.1
         
         self._prev_throttle = throttle
-        print (f"[long controller] throttle: {throttle}") 
+        # print (f"[long controller] throttle: {throttle}") 
         self._power_actuator(throttle)
 
 
